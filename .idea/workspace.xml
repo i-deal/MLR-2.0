@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="e90bed66-9e74-4027-9080-66eb6c8c67f8" name="Default Changelist" comment="" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ProjectId" id="1Z3ZpKxb4Z6UiSZ1Zy8uTMeCdJJ" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showExcludedFiles" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="WebServerToolWindowFactoryState" value="false" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="node.js.detected.package.eslint" value="true" />
+    <property name="node.js.detected.package.tslint" value="true" />
+    <property name="node.js.path.for.package.eslint" value="project" />
+    <property name="node.js.path.for.package.tslint" value="project" />
+    <property name="node.js.selected.package.eslint" value="(autodetect)" />
+    <property name="node.js.selected.package.tslint" value="(autodetect)" />
+    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PythonContentEntriesConfigurable" />
+  </component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$" />
+    </key>
+  </component>
+  <component name="RunManager" selected="Python.plots">
+    <configuration name="BPreconstruction" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="VAE" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/BPreconstruction.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Training" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="VAE" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="$PROJECT_DIR$/../untitled/venv/bin/python" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Training.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="plots" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="VAE" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/plots.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.plots" />
+        <item itemvalue="Python.Training" />
+        <item itemvalue="Python.BPreconstruction" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SvnConfiguration">
+    <configuration />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="e90bed66-9e74-4027-9080-66eb6c8c67f8" name="Default Changelist" comment="" />
+      <created>1584069919712</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1584069919712</updated>
+      <workItem from="1584069926909" duration="759000" />
+      <workItem from="1584070824577" duration="1387000" />
+      <workItem from="1584114902783" duration="13920000" />
+      <workItem from="1584185612116" duration="15905000" />
+      <workItem from="1584287744142" duration="2700000" />
+      <workItem from="1584295480905" duration="41599000" />
+      <workItem from="1584649272690" duration="2846000" />
+      <workItem from="1584923008030" duration="149000" />
+      <workItem from="1584923364437" duration="3181000" />
+      <workItem from="1584992360227" duration="4452000" />
+      <workItem from="1585589545854" duration="41000" />
+      <workItem from="1585589616991" duration="1946000" />
+      <workItem from="1585674527489" duration="9235000" />
+      <workItem from="1585802460871" duration="1790000" />
+      <workItem from="1585864181041" duration="594000" />
+      <workItem from="1585864793473" duration="549000" />
+      <workItem from="1585865353359" duration="185000" />
+      <workItem from="1585865547889" duration="1289000" />
+      <workItem from="1609192278490" duration="18927000" />
+      <workItem from="1609265049263" duration="33695000" />
+      <workItem from="1609517671277" duration="103344000" />
+      <workItem from="1609970804457" duration="9157000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="1" />
+  </component>
+  <component name="WindowStateProjectService">
+    <state x="611" y="369" width="598" height="391" key="#com.intellij.fileTypes.FileTypeChooser" timestamp="1609195901944">
+      <screen x="0" y="31" width="1811" height="1042" />
+    </state>
+    <state x="611" y="369" width="598" height="391" key="#com.intellij.fileTypes.FileTypeChooser/0.31.1811.1042@0.31.1811.1042" timestamp="1609195901944" />
+    <state x="798" y="455" width="430" height="486" key="FileChooserDialogImpl" timestamp="1609989008411">
+      <screen x="0" y="31" width="1867" height="934" />
+    </state>
+    <state x="686" y="484" width="430" height="486" key="FileChooserDialogImpl/0.31.1605.999@0.31.1605.999" timestamp="1609281353076" />
+    <state x="786" y="448" key="FileChooserDialogImpl/0.31.1838.919@0.31.1838.919" timestamp="1609602650836" />
+    <state x="798" y="455" key="FileChooserDialogImpl/0.31.1867.934@0.31.1867.934" timestamp="1609989008411" />
+    <state x="586" y="346" key="com.intellij.ide.util.TipDialog" timestamp="1609517672242">
+      <screen x="0" y="31" width="1866" height="948" />
+    </state>
+    <state x="569" y="346" key="com.intellij.ide.util.TipDialog/0.31.1811.949@0.31.1811.949" timestamp="1609265049851" />
+    <state x="586" y="346" key="com.intellij.ide.util.TipDialog/0.31.1866.948@0.31.1866.948" timestamp="1609517672242" />
+    <state x="373" y="168" key="search.everywhere.popup" timestamp="1609730706249">
+      <screen x="0" y="31" width="1830" height="816" />
+    </state>
+    <state x="373" y="168" key="search.everywhere.popup/0.31.1830.816@0.31.1830.816" timestamp="1609730706249" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$APPLICATION_CONFIG_DIR$/scratches/scratch.py</url>
+          <line>657</line>
+          <option name="timeStamp" value="2" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/VQVAE$Training.coverage" NAME="Training Coverage Results" MODIFIED="1585865636936" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/VAE$BPreconstruction.coverage" NAME="BPreconstruction Coverage Results" MODIFIED="1584071314236" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/VQVAE$BPreconstruction.coverage" NAME="BPreconstruction Coverage Results" MODIFIED="1584114917529" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/VAE$Training.coverage" NAME="Training Coverage Results" MODIFIED="1584070969254" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+  </component>
+</project>
