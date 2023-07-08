@@ -600,7 +600,7 @@ class VAE_CNN(nn.Module):
         return self.fc31(h), self.fc32(h), self.fc33(h), self.fc34(h), self.fc35(l), self.fc36(l), hskip # mu, log_var
     
     def sampling_location(self, mu, log_var):
-        std = torch.tensor(0.5 * log_var)
+        std = (0.5 * log_var)
         eps = torch.randn_like(std)
         return mu + eps * std
 
