@@ -198,7 +198,6 @@ if data_set_flag == 'padded_mnist':
         train=True,
         download=True,
         transform=transforms.Compose([
-            transforms.Resize((imgsize, imgsize)),
             Colorize_func,
             PadAndPosition(translate_to_right(retina_size)),
         ])
@@ -209,7 +208,6 @@ if data_set_flag == 'padded_mnist':
         train=True,
         download=True,
         transform=transforms.Compose([
-            transforms.Resize((imgsize, imgsize)),
             Colorize_func,
             PadAndPosition(translate_to_left(retina_size)),
         ])
@@ -600,6 +598,11 @@ class VAE_CNN(nn.Module):
         h = self.relu(self.fc_bn2(self.fc2(h)))
 
         return self.fc31(h), self.fc32(h), self.fc33(h), self.fc34(h), self.fc35(l), self.fc36(l), hskip # mu, log_var
+    
+    def sampling_location(self, mu, log_var):
+        std = torch.tensor(0.5 * log_var)
+        eps = torch.randn_like(std)
+        return mu + eps * std
 
     def sampling(self, mu, log_var):
         std = torch.exp(0.5 * log_var)
@@ -608,12 +611,12 @@ class VAE_CNN(nn.Module):
 
     def decoder_retinal(self, z_shape, z_color, z_location, hskip):
         # digit recon
-        h = F.relu(self.fc4c(z_color)) + F.relu(self.fc4s(z_shape))
+        h = (F.relu(self.fc4c(z_color)) * 2) + (F.relu(self.fc4s(z_shape)) * 1.3)
         h = F.relu(self.fc5(h)).view(-1, 16, int(imgsize/4), int(imgsize/4))
         h = self.relu(self.bn5(self.conv5(h)))
         h = self.relu(self.bn6(self.conv6(h)))
         h = self.relu(self.bn7(self.conv7(h)))
-        h = self.conv8(h).view(-1, 3, imgsize, imgsize) #detach conv
+        h = self.conv8(h).detach().view(-1, 3, imgsize, imgsize) #detach conv
         h = torch.sigmoid(h)
         # location vector recon
         l = F.relu(self.fc4l(z_location))
@@ -709,9 +712,9 @@ class VAE_CNN(nn.Module):
             z_color = self.sampling(mu_color, log_var_color).detach()
     
         if ('location' in keepgrad):
-            z_location = self.sampling(mu_location, log_var_location)
+            z_location = self.sampling_location(mu_location, log_var_location)
         else:
-            z_location = self.sampling(mu_location, log_var_location).detach()
+            z_location = self.sampling_location(mu_location, log_var_location).detach()
         
         if ('skip' in keepgrad):
             hskip = hskip
@@ -899,6 +902,7 @@ def train(epoch, whichdecode):
             
             empty_retina = torch.zeros((sample_size, 3, imgsize, retina_size))
             save_image(reconl[0:4], f'{args.dir}/orign.png')
+            # reconl = remove dim shadows
             n_reconl = empty_retina.clone()
             for i in range(len(reconl)):
                 n_reconl[i][0, :, 0:10] = reconl[i]

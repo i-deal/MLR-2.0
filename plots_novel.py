@@ -66,7 +66,7 @@ def load_checkpoint(filepath):
     vae.eval()
     return vae
 
-load_checkpoint('output{modelNumber}/checkpoint_threeloss_singlegrad300.pth'.format(modelNumber=modelNumber))
+load_checkpoint('output{modelNumber}/checkpoint_threeloss_singlegrad200.pth'.format(modelNumber=modelNumber))
 
 print('Loading the classifiers')
 clf_shapeS=load('output{num}/ss{num}.joblib'.format(num=modelNumber))
@@ -365,8 +365,8 @@ if fig_new_loc == 1:
     shape_color_dim = retina_size
     sample = sample[0].cuda()
     utils.save_image(
-        torch.cat([sample.view(sample_size, 3, imgsize, retina_size), reconb.view(sample_size, 3, imgsize, retina_size), n_reconl.view(sample_size, 3, imgsize, retina_size),
-                    n_reconc.view(sample_size, 3, imgsize, shape_color_dim), n_recons.view(sample_size, 3, imgsize, shape_color_dim)], 0),
+        torch.cat([sample.view(sample_size, 3, imgsize, retina_size), reconb.view(sample_size, 3, imgsize, retina_size), n_recond.view(sample_size, 3, imgsize, retina_size),
+                    n_reconl.view(sample_size, 3, imgsize, retina_size), n_reconc.view(sample_size, 3, imgsize, shape_color_dim), n_recons.view(sample_size, 3, imgsize, shape_color_dim)], 0),
                 'output{num}/figure_new_location.png'.format(num=modelNumber),
                 nrow=sample_size,
                 normalize=False,
@@ -398,7 +398,7 @@ if Fig2bFlag==1:
             normalize=False,
             range=(-1, 1),
         )
-    '''
+
     l1_act, l2_act, shape_act, color_act = activations(imgs)
     l1_act_tr = l1_act.clone()
 
@@ -460,22 +460,7 @@ if Fig2bFlag==1:
             normalize=False,
             range=(-1, 1),
         )
-    '''
-    sample_size = numimg
-    sample = all_imgs.cuda()
-    with torch.no_grad():
-        reconl, mu_color, log_var_color, mu_shape, log_var_shape,x,y = vae(sample, 'location')
-        reconb, mu_color, log_var_color, mu_shape, log_var_shape,x,y = vae(sample, 'noskip')
-        reconc, mu_color, log_var_color, mu_shape, log_var_shape,x,y = vae(sample, 'color')
-        recons, mu_color, log_var_color, mu_shape, log_var_shape,x,y = vae(sample, 'shape')
-           
-        utils.save_image(
-            torch.cat([sample.view(sample_size, 3, imgsize, retina_size), reconb.view(sample_size, 3, imgsize, retina_size), reconl.view(sample_size, 3, imgsize, retina_size),
-                           reconc.view(sample_size, 3, imgsize, retina_size), recons.view(sample_size, 3, imgsize, retina_size)], 0),
-            'output{num}/figure2b.png'.format(num=modelNumber),
-            nrow=sample_size,
-            normalize=False,
-            range=(-1, 1),)
+
 
 ####this part of the code is token-related####################
 

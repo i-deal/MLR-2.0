@@ -11,7 +11,7 @@ import numpy as np
 from sklearn import svm
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
-
+import os
 
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
@@ -36,9 +36,13 @@ numcolors = 0
 
 #these define the R,G,B color values for each of the 10 colors.  
 #Values near the boundaries of 0 and 1 are specified with colorrange to avoid the clipping the random values
-    
+folder_path = f'output'
 
-for epoch in range(1, 301):
+if not os.path.exists(folder_path):
+    os.mkdir(folder_path)
+
+
+for epoch in range(1, 201):
     #modified to include color labels
     train(epoch,'iterated')
     colorlabels = np.random.randint(0,10,100000)#regenerate the list of color labels at the start of each test epoch
@@ -51,7 +55,7 @@ for epoch in range(1, 301):
                  'state_dict': vae.state_dict(),
                  'optimizer' : optimizer.state_dict(),
                       }
-        torch.save(checkpoint,f'{args.dir}/checkpoint_threeloss_singlegrad'+str(epoch)+'.pth')
+        torch.save(checkpoint,f'{folder_path}/checkpoint_threeloss_singlegrad'+str(epoch)+'.pth')
 
 
 
