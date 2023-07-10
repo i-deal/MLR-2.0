@@ -578,10 +578,10 @@ class VAE_CNN(nn.Module):
         self.conv8 = nn.ConvTranspose2d(16, 3, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn8 = nn.BatchNorm2d(3)
         # combine recon and location into retina
-        #self.fc6 = nn.Linear(imgsize+10,(imgsize//2)+(retina_size//2)) # what happens when fc size is increased
-        #self.fc7 = nn.Linear((imgsize//2)+(retina_size//2), retina_size)
-        self.fc6 = nn.Linear((imgsize+10) * imgsize * 3, imgsize * (retina_size//2) * 3)
-        self.fc7 = nn.Linear(imgsize * (retina_size//2) * 3, retina_size * imgsize * 3)
+        self.fc6 = nn.Linear(imgsize+10,(imgsize//2)+(retina_size//2)) # what happens when fc size is increased
+        self.fc7 = nn.Linear((imgsize//2)+(retina_size//2), retina_size)
+        #self.fc6 = nn.Linear((imgsize+10) * imgsize * 3, imgsize * (retina_size//2) * 3)
+        #self.fc7 = nn.Linear(imgsize * (retina_size//2) * 3, retina_size * imgsize * 3)
         self.relu = nn.ReLU()
         self.skipconv = nn.Conv2d(16,16,kernel_size=1,stride=1,padding =0,bias=False)
 
@@ -625,8 +625,8 @@ class VAE_CNN(nn.Module):
         l = l.expand(-1, 3, imgsize, 10) # reshape to concat
         # combine into retina
         h = torch.cat([h,l], dim = 3)
-        b_dim = h.size()[0]
-        h = h.view(b_dim,-1)
+        #b_dim = h.size()[0]
+        #h = h.view(b_dim,-1)
         h = self.relu(self.fc6(h))
         h = self.fc7(h).view(-1,3,imgsize,retina_size)
         return torch.sigmoid(h)
@@ -743,7 +743,7 @@ def vae_builder(vae_type = vae_type_flag, x_dim = retina_size * imgsize * 3, h_d
     else:
         vae = VAE_CNN(x_dim, h_dim1, h_dim2, z_dim, l_dim)
 
-    folder_path = f'sample_{vae_type}_{data_set_flag}'
+    folder_path = f'sample_{vae_type}_{data_set_flag}_smfc'
 
     if not os.path.exists(folder_path):
         os.mkdir(folder_path)
@@ -935,7 +935,7 @@ def train(epoch, whichdecode):
             utils.save_image(
                 torch.cat([sample.view(sample_size, 3, imgsize, shape_color_dim), reconb.view(sample_size, 3, imgsize, shape_color_dim), n_recond.view(sample_size, 3, imgsize, shape_color_dim), n_reconl.view(sample_size, 3, imgsize, shape_color_dim),
                            n_reconc.view(sample_size, 3, imgsize, shape_color_dim), n_recons.view(sample_size, 3, imgsize, shape_color_dim)], 0),
-                f'sample_{vae_type_flag}_{data_set_flag}/{str(epoch + 1).zfill(5)}_{str(count).zfill(5)}.png',
+                f'sample_{vae_type_flag}_{data_set_flag}_smfc/{str(epoch + 1).zfill(5)}_{str(count).zfill(5)}.png',
                 nrow=sample_size,
                 normalize=False,
                 range=(-1, 1),

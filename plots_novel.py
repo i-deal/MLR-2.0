@@ -66,7 +66,7 @@ def load_checkpoint(filepath):
     vae.eval()
     return vae
 
-load_checkpoint('output{modelNumber}/checkpoint_threeloss_singlegrad200.pth'.format(modelNumber=modelNumber))
+load_checkpoint('output{modelNumber}/checkpoint_threeloss_singlegrad300_smfc.pth'.format(modelNumber=modelNumber))
 
 print('Loading the classifiers')
 clf_shapeS=load('output{num}/ss{num}.joblib'.format(num=modelNumber))
@@ -313,15 +313,16 @@ if fig_new_loc == 1:
 
     test_loader_total = torch.utils.data.DataLoader(total_test_dataset, shuffle = True, batch_size=bs, drop_last=True)
     test_loader_noSkip = test_loader_total
+    
     imgsize = 28
     numimg = 10
     trans2 = transforms.ToTensor()
-    dataiter_noSkip = iter(train_loader_noSkip)
+    dataiter_noSkip = iter(test_loader_noSkip)
     data = dataiter_noSkip.next()
     data = data[0] #.cuda()
+    
     sample_data = data
     sample_size = 25
-
     sample_data[0] = sample_data[0][:sample_size]
     sample_data[1] = sample_data[1][:sample_size]
     sample_data[2] = sample_data[2][:sample_size]

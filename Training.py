@@ -42,7 +42,7 @@ if not os.path.exists(folder_path):
     os.mkdir(folder_path)
 
 
-for epoch in range(1, 201):
+for epoch in range(1, 301):
     #modified to include color labels
     train(epoch,'iterated')
     colorlabels = np.random.randint(0,10,100000)#regenerate the list of color labels at the start of each test epoch
@@ -55,7 +55,7 @@ for epoch in range(1, 201):
                  'state_dict': vae.state_dict(),
                  'optimizer' : optimizer.state_dict(),
                       }
-        torch.save(checkpoint,f'{folder_path}/checkpoint_threeloss_singlegrad'+str(epoch)+'.pth')
+        torch.save(checkpoint,f'{folder_path}/checkpoint_threeloss_singlegrad{str(epoch)}_smfc.pth')
 
 
 
