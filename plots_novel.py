@@ -66,7 +66,7 @@ def load_checkpoint(filepath):
     vae.eval()
     return vae
 
-load_checkpoint('output{modelNumber}/checkpoint_threeloss_singlegrad300_smfc.pth'.format(modelNumber=modelNumber))
+load_checkpoint('output{modelNumber}/checkpoint_threeloss_singlegrad200_smfc.pth'.format(modelNumber=modelNumber))
 
 print('Loading the classifiers')
 clf_shapeS=load('output{num}/ss{num}.joblib'.format(num=modelNumber))
@@ -359,15 +359,20 @@ if fig_new_loc == 1:
         n_recons[i][0, :, 0:28] = recons[i][0]
         n_recons[i][1, :, 0:28] = recons[i][1]
         n_recons[i][2, :, 0:28] = recons[i][2]
-    n_reconc = n_reconc.cuda()
-    n_recons = n_recons.cuda()
-    n_reconl = n_reconl.cuda()
-    n_recond = n_recond.cuda()
-    shape_color_dim = retina_size
-    sample = sample[0].cuda()
+    line1 = torch.ones((1,2)) * 0.5
+    line1 = line1.view(1,1,1,2)
+    line1 = line1.expand(sample_size, 3, imgsize, 2)
+    
+    n_reconc = torch.cat((n_reconc,line1),dim = 3).cuda()
+    n_recons = torch.cat((n_recons,line1),dim = 3).cuda()
+    n_reconl = torch.cat((n_reconl,line1),dim = 3).cuda()
+    n_recond = torch.cat((n_recond,line1),dim = 3).cuda()
+    shape_color_dim = retina_size + 2
+    sample = torch.cat((sample[0],line1),dim = 3).cuda()
+    reconb = torch.cat((reconb,line1.cuda()),dim = 3).cuda()
     utils.save_image(
-        torch.cat([sample.view(sample_size, 3, imgsize, retina_size), reconb.view(sample_size, 3, imgsize, retina_size), n_recond.view(sample_size, 3, imgsize, retina_size),
-                    n_reconl.view(sample_size, 3, imgsize, retina_size), n_reconc.view(sample_size, 3, imgsize, shape_color_dim), n_recons.view(sample_size, 3, imgsize, shape_color_dim)], 0),
+        torch.cat([sample.view(sample_size, 3, imgsize, retina_size+2), reconb.view(sample_size, 3, imgsize, retina_size+2), n_recond.view(sample_size, 3, imgsize, retina_size+2),
+                    n_reconl.view(sample_size, 3, imgsize, retina_size+2), n_reconc.view(sample_size, 3, imgsize, shape_color_dim), n_recons.view(sample_size, 3, imgsize, shape_color_dim)], 0),
                 'output{num}/figure_new_location.png'.format(num=modelNumber),
                 nrow=sample_size,
                 normalize=False,
