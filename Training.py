@@ -22,10 +22,24 @@ config.init()
 
 from config import numcolors, args
 global numcolors
-from mVAE import train, test, vae,  thecolorlabels, optimizer
+from mVAE import train, test, vae,  thecolorlabels, optimizer, dataset_builder
 
+if torch.cuda.is_available():
+    device = 'cuda'
+    print('CUDA')
+else:
+    device = 'cpu'
 
+# reload a saved file
+def load_checkpoint(filepath):
+    checkpoint = torch.load(filepath,device)
+    vae.load_state_dict(checkpoint['state_dict'])
+    #for parameter in vae.parameters():
+        #parameter.requires_grad = False
+    #vae.eval()
+    return vae
 
+load_checkpoint('output{modelNumber}/checkpoint_threeloss_singlegrad200_smfc.pth'.format(modelNumber=1)) #temp
 #define color labels 
 #this list of colors is randomly generated at the start of each epoch (down below)
 
@@ -41,10 +55,12 @@ folder_path = f'output'
 if not os.path.exists(folder_path):
     os.mkdir(folder_path)
 
+data_set_flag ='padded_mnist'
+train_loader_noSkip, train_loader_skip, test_loader_noSkip, test_loader_skip = dataset_builder(data_set_flag)
 
 for epoch in range(1, 201):
     #modified to include color labels
-    train(epoch,'iterated')
+    train(epoch,'iterated', train_loader_noSkip, train_loader_skip)
     colorlabels = np.random.randint(0,10,100000)#regenerate the list of color labels at the start of each test epoch
     numcolors = 0
     #if epoch % 5 == 0:

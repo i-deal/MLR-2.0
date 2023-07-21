@@ -68,7 +68,7 @@ def load_checkpoint(filepath):
 
 load_checkpoint('output{modelNumber}/checkpoint_threeloss_singlegrad200_smfc.pth'.format(modelNumber=modelNumber))
 
-print('Loading the classifiers')
+#print('Loading the classifiers')
 clf_shapeS=load('output{num}/ss{num}.joblib'.format(num=modelNumber))
 clf_shapeC=load('output{num}/sc{num}.joblib'.format(num=modelNumber))
 clf_colorC=load('output{num}/cc{num}.joblib'.format(num=modelNumber))
@@ -108,9 +108,10 @@ smallpermnum = 100
 
 Fig1SuppFlag =0      #reconstructions straight from the VAE (supplementary figure 1)
 Fig2aFlag = 0       #binding pool reconstructions
-fig_new_loc = 1
-Fig2bFlag = 0#1        #novel reconstructions
+fig_new_loc = 0
+Fig2bFlag = 1        #novel reconstructions
 Fig2cFlag = 0        #token reconstructions (reconstructing multiple items)
+Fig2dFlag = 1
 
 bindingtestFlag = 0  #simulating binding shape-color of two items
 
@@ -250,25 +251,25 @@ if fig_new_loc == 1:
     class translate_to_right:
         def __init__(self, max_width):
             self.max_width = max_width
-            self.pos = torch.zeros((10))
+            self.pos = torch.zeros((100))
         def __call__(self, img):
             padding_left = random.randint(self.max_width // 2, self.max_width - img.size[0])
             padding_right = self.max_width - img.size[0] - padding_left
             padding = (padding_left, 0, padding_right, 0)
             pos = self.pos.clone()
-            pos[padding_left//10] = 1
+            pos[padding_left] = 1
             return ImageOps.expand(img, padding), pos
 
     class translate_to_left:
         def __init__(self, max_width):
             self.max_width = max_width
-            self.pos = torch.zeros((10))
+            self.pos = torch.zeros((100))
         def __call__(self, img):
             padding_left = random.randint(0, (self.max_width // 2) - img.size[0])
             padding_right = self.max_width - img.size[0] - padding_left
             padding = (padding_left, 0, padding_right, 0)
             pos = self.pos.clone()
-            pos[padding_left//10] = 1
+            pos[padding_left] = 1
             return ImageOps.expand(img, padding), pos
 
     class PadAndPosition:
@@ -338,9 +339,9 @@ if fig_new_loc == 1:
 
     n_reconl = empty_retina.clone()
     for i in range(len(reconl)):
-        n_reconl[i][0, :, 0:10] = reconl[i]
-        n_reconl[i][1, :, 0:10] = reconl[i]
-        n_reconl[i][2, :, 0:10] = reconl[i]
+        n_reconl[i][0, :, 0:100] = reconl[i]
+        n_reconl[i][1, :, 0:100] = reconl[i]
+        n_reconl[i][2, :, 0:100] = reconl[i]
 
     n_recond = empty_retina.clone()
     for i in range(len(recond)):
@@ -380,41 +381,41 @@ if fig_new_loc == 1:
             )
 
 if Fig2bFlag==1:
+    all_imgs = []
     #print('generating Figure 2b, Novel characters retrieved from memory of L1 and Bottleneck')
     retina_size = 100
     imgsize = 28
-    numimg = 10
+    numimg = 7
     trans2 = transforms.ToTensor()
 
     convert_tensor = transforms.ToTensor()
     convert_image = transforms.ToPILImage()
     for i in range (1,numimg+1):
-        img = Image.open(f'novel_padded_mnist/og{i}.png')
+        img = Image.open(f'current_bengali/{i}_thick.png')
         img = convert_tensor(img)
-        img_new = img[0:3,:,:]*1.0   #Ian
-
+        img_new = img[0:3,:,:]*1.0
+        #img_new = Colorize_func(img)
         all_imgs.append(img_new)
     all_imgs = torch.stack(all_imgs)
-    imgs = all_imgs.view(-1, 3 * imgsize * retina_size).to(device)
+    imgs = all_imgs.view(-1, 3 * imgsize * imgsize).to(device)
     img_new = convert_image(img_new)
     save_image(
-            torch.cat([trans2(img_new).view(1, 3, 28, retina_size)], 0),
+            torch.cat([trans2(img_new).view(1, 3, imgsize, imgsize)], 0),
             'output{num}/figure10test.png'.format(num=modelNumber),
             nrow=numimg,
             normalize=False,
             range=(-1, 1),
         )
 
-    l1_act, l2_act, shape_act, color_act = activations(imgs)
+    l1_act, l2_act, shape_act, color_act = activations(imgs.view(-1,3,28,28))
     l1_act_tr = l1_act.clone()
 
     l1_act_tr[l1_act!=0] = l1_act_tr[l1_act!=0] + 0  #ian
     l1_act_tr[l1_act_tr == 0] = -0   #ian
 
-
-    BP_in, shape_out_BP, color_out_BP, BP_layerI_junk, BP_layer2_junk = BP(bpPortion, l1_act_tr, l2_act, shape_act, color_act, shape_coeff, color_coeff,0,0,normalize_fact_novel)
-    BPRep, shape_out_BP_junk, color_out_BP_junk, BP_layerI_out, BP_layer2_junk = BP(bpPortion, l1_act_tr, l2_act, shape_act, color_act, 0, 0,l1_coeff,0,normalize_fact_novel)
-    BP_in, shape_out_BP_junk, color_out_BP_junk, BP_layerI_junk, BP_layer2_out = BP(bpPortion, l1_act_tr, l2_act, shape_act, color_act, 0, 0,0,l2_coeff,normalize_fact_novel)
+    BP_in, shape_out_BP, color_out_BP, BP_layerI_junk, BP_layer2_junk = BP(bpPortion, l1_act_tr.view(numimg,-1), l2_act.view(numimg,-1), shape_act, color_act, shape_coeff, color_coeff,0,0,normalize_fact_novel)
+    BPRep, shape_out_BP_junk, color_out_BP_junk, BP_layerI_out, BP_layer2_junk = BP(bpPortion, l1_act_tr.view(numimg,-1), l2_act.view(numimg,-1), shape_act, color_act, 0, 0,l1_coeff,0,normalize_fact_novel)
+    BP_in, shape_out_BP_junk, color_out_BP_junk, BP_layerI_junk, BP_layer2_out = BP(bpPortion, l1_act_tr.view(numimg,-1), l2_act.view(numimg,-1), shape_act, color_act, 0, 0,0,l2_coeff,normalize_fact_novel)
     BP_layerI_out = BP_layerI_out.squeeze()
     BP_layerI_out_orig = BP_layerI_out.clone()
     
@@ -447,20 +448,21 @@ if Fig2bFlag==1:
     plt.ylabel('L1 after BP')
     plt.subplot(155)
     plt.hist(BP_layerI_out_plt, 100)
+    #plt.show()
     
 
     # reconstruct directly from activation
-    recon_layer1_skip, mu_color, log_var_color, mu_shape, log_var_shape = vae(l1_act, l2_act, 1, 'skip')
+    recon_layer1_skip, mu_color, log_var_color, mu_shape, log_var_shape = vae.forward_layers(l1_act.view(numimg,-1), l2_act, 3, 'skip_cropped')
 
     # reconstruct directly from layer 1 skip
-    BP_layer1_skip, mu_color, log_var_color, mu_shape, log_var_shape = vae(BP_layerI_out,BP_layer2_out,1, 'skip')
+    BP_layer1_skip, mu_color, log_var_color, mu_shape, log_var_shape = vae.forward_layers(BP_layerI_out.view(numimg,-1),BP_layer2_out,3, 'skip_cropped')
 
     # reconstruct directly from layer 1 noskip  (i.e. through the bottleneck)
-    BP_layer1_noskip, mu_color, log_var_color, mu_shape, log_var_shape = vae(BP_layerI_out,BP_layer2_out, 1, 'noskip')
+    BP_layer1_noskip, mu_color, log_var_color, mu_shape, log_var_shape = vae.forward_layers(BP_layerI_out.view(numimg,-1),BP_layer2_out, 3, 'cropped')
 
     save_image(
-            torch.cat([imgs[0: numimg].view(numimg, 3, 28, retina_size), recon_layer1_skip[0: numimg].view(numimg, 3, 28, retina_size),
-                       BP_layer1_skip[0: numimg].view(numimg, 3, 28, retina_size),BP_layer1_noskip[0: numimg].view(numimg, 3, 28, retina_size) ], 0),
+            torch.cat([imgs[0: numimg].view(numimg, 3, 28, imgsize), recon_layer1_skip[0: numimg].view(numimg, 3, 28, imgsize),
+                       BP_layer1_skip[0: numimg].view(numimg, 3, 28, imgsize),BP_layer1_noskip[0: numimg].view(numimg, 3, 28, imgsize) ], 0),
             'output{num}/figure2b.png'.format(num=modelNumber),
             nrow=numimg,
             normalize=False,
@@ -498,6 +500,45 @@ if Fig2cFlag ==1 :
         imgs = orig_imgs.clone()
         save_image(imgs[0: n].view(n, 3, 28, 28), 'output{num}/figure2coriginals{d}.png'.format(num=modelNumber,d=n))
         save_image(retrievals[0: n].view(n, 3, 28, 28), 'output{num}/figure2cretrieved{d}.png'.format(num=modelNumber,d=n))
+
+if Fig2dFlag == 1:
+    print('generating Figure 2b, Novel characters retrieved from memory of L1 and Bottleneck')
+    all_imgs = []
+    numimg = 6
+    trans2 = transforms.ToTensor()
+
+    for i in range (1,numimg+1):
+        img = Image.open('current_bengali/{each}_thick.png'.format(each=i))
+        img = np.mean(img,axis=2)
+        img[img < 64] = 0   #necessary for correcting baseline value of non thick stimuli
+
+        img_new = Colorize_func(img)
+        image = trans2(img_new)*1.3
+        all_imgs.append(image)
+    all_imgs = torch.stack(all_imgs)
+    imgs = all_imgs.view(-1, 3, 28, 28).cuda()
+
+    save_image(
+            torch.cat([trans2(img_new).view(1, 3, 28, 28)], 0),
+            'output{num}/figure10test.png'.format(num=modelNumber),
+            nrow=numimg,
+            normalize=False,
+            range=(-1, 1),
+        )
+    
+    with torch.no_grad():
+        #reconl, mu_color, log_var_color, mu_shape, log_var_shape,mu_location, log_var_location = vae(imgs, 'location') #location
+        #reconb, mu_color, log_var_color, mu_shape, log_var_shape, mu_location, log_var_location = vae(imgs, 'retinal') #retina
+        recond, mu_color, log_var_color, mu_shape, log_var_shape, mu_location, log_var_location = vae((0,imgs,torch.zeros((100))), 'skip_cropped') #digit
+        #reconc, mu_color, log_var_color, mu_shape, log_var_shape, mu_location, log_var_location = vae(sample, 'color') #color
+        #recons, mu_color, log_var_color, mu_shape, log_var_shape, mu_location, log_var_location = vae(sample, 'shape') #shape
+    save_image(
+            torch.cat([imgs[0: numimg].view(numimg, 3, 28, 28), recond[0: numimg].view(numimg, 3, 28, 28) ], 0),
+            'output{num}/figure2d.png'.format(num=modelNumber),
+            nrow=numimg,
+            normalize=False,
+            range=(-1, 1),
+        )
 
 ###################Table 2##################################################
 if Tab2Flag ==1:

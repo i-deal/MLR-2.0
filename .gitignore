@@ -8,6 +8,5 @@
 .sample_CNN_padded_mnist
 .cifar_data
 .output
-.output1
 .outputFile
 *.png

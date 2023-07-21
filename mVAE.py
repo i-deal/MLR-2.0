@@ -4,7 +4,7 @@
 # Modifications:
 # Colorize transform that changes the colors of a grayscale image
 # colors are chosen from 10 options:
-colornames = ["red", "blue", "green", "purple", "yellow", "cyan", "orange", "brown", "pink", "teal"]
+colornames = ["red", "blue", "green", "purple", "yellow", "cyan", "orange", "brown", "pink", "white-ish"]
 # specified in "colorvals" variable below
 
 # also there is a skip connection from the first layer to the last layer to enable reconstructions of new stimuli
@@ -53,7 +53,7 @@ colorvals = [
     [1 - colorrange, .5, colorrange * 2],
     [.6, .4, .2],
     [1 - colorrange, 1 - colorrange * 3, 1 - colorrange * 3],
-    [colorrange, .5, .5]
+    [1-colorrange,1-colorrange,1-colorrange]
 ]
 
 try:
@@ -157,391 +157,293 @@ imgsize = 28
 retina_size = 100 #by default should be same size as image
 vae_type_flag = 'CNN' # must be CNN or FC
 
+# must call the dataset_builder function from a seperate .py file
+
 # padded cifar10, 2d retina, sight word latent, 
-
-if data_set_flag == 'padded_mnist':
-    bs = 100
-    class translate_to_right:
-        def __init__(self, max_width):
-            self.max_width = max_width
-            self.pos = torch.zeros((10))
-        def __call__(self, img):
-            padding_left = random.randint(self.max_width // 2, self.max_width - img.size[0])
-            padding_right = self.max_width - img.size[0] - padding_left
-            padding = (padding_left, 0, padding_right, 0)
-            pos = self.pos.clone()
-            pos[padding_left//10] = 1
-            return ImageOps.expand(img, padding), pos
-
-    class translate_to_left:
-        def __init__(self, max_width):
-            self.max_width = max_width
-            self.pos = torch.zeros((10))
-        def __call__(self, img):
-            padding_left = random.randint(0, (self.max_width // 2) - img.size[0])
-            padding_right = self.max_width - img.size[0] - padding_left
-            padding = (padding_left, 0, padding_right, 0)
-            pos = self.pos.clone()
-            pos[padding_left//10] = 1
-            return ImageOps.expand(img, padding), pos
-
-    class PadAndPosition:
-        def __init__(self, transform):
-            self.transform = transform
-        def __call__(self, img):
-            new_img, position = self.transform(img)
-            return transforms.ToTensor()(new_img), transforms.ToTensor()(img), position
-    
-    # Load MNIST datasets, order: [notional_retina, cropped_digit, one-hot_position_vector]   
-    train_dataset_right = datasets.MNIST(
-        root='./data',
-        train=True,
-        download=True,
-        transform=transforms.Compose([
-            Colorize_func,
-            PadAndPosition(translate_to_right(retina_size)),
-        ])
-    )
-
-    train_dataset_left = datasets.MNIST(
-        root='./data',
-        train=True,
-        download=True,
-        transform=transforms.Compose([
-            Colorize_func,
-            PadAndPosition(translate_to_left(retina_size)),
-        ])
-    )
-
-    right_indices_0_to_4 = [idx for idx, target in enumerate(train_dataset_right.targets) if target in [0, 1, 2, 3, 4]]
-    right_indices_5_to_9 = [idx for idx, target in enumerate(train_dataset_right.targets) if target not in [0, 1, 2, 3, 4]]
-
-    left_indices_5_to_9 = [idx for idx, target in enumerate(train_dataset_left.targets) if target in [5, 6, 7, 8, 9]]
-    left_indices_0_to_4 = [idx for idx, target in enumerate(train_dataset_left.targets) if target not in [5, 6, 7, 8, 9]]
-
-    right_subset_0_to_4 = Subset(train_dataset_right, right_indices_0_to_4) #a subset consisting of only digits < 5 and all translated to the right
-    left_subset_5_to_9 = Subset(train_dataset_left, left_indices_5_to_9) #a subset consisting of only digits >= 5 and all translated to the left
-
-    right_subset_5_to_9 = Subset(train_dataset_right, right_indices_5_to_9) #a subset consisting of only digits >= 5 and all translated to the right
-    left_subset_0_to_4 = Subset(train_dataset_left, left_indices_0_to_4) #a subset consisting of only digits < 5 and all translated to the left
-
-    #combine these subsets to build a set of all digits where digits < 5 are translated to the right and digits >= 5 to the left
-    total_train_dataset = right_subset_0_to_4 + left_subset_5_to_9
-
-    #combine these subsets to build a set of all digits where digits < 5 are translated to the left and digits >= 5 to the right
-    total_test_dataset = right_subset_5_to_9 + left_subset_0_to_4
-
-    train_loader_total = torch.utils.data.DataLoader(total_train_dataset, shuffle = True, batch_size=bs, drop_last=True)
-
-    test_loader_total = torch.utils.data.DataLoader(total_test_dataset, shuffle = True, batch_size=bs, drop_last=True)
-
-    train_loader_noSkip = train_loader_total
-    train_loader_skip = train_loader_total
-    test_loader_noSkip = test_loader_total
-    test_loader_skip = test_loader_total
-
-elif data_set_flag == 'padded_cifar10':
-    bs = 100
-    class translate_to_right:
-        def __init__(self, max_width):
-            self.max_width = max_width
-            self.pos = torch.zeros((10))
-        def __call__(self, img):
-            padding_left = random.randint(self.max_width // 2, self.max_width - img.size[0])
-            padding_right = self.max_width - img.size[0] - padding_left
-            padding = (padding_left, 0, padding_right, 0)
-            pos = self.pos.clone()
-            pos[padding_left//10] = 1
-            return ImageOps.expand(img, padding), pos
-
-    class translate_to_left:
-        def __init__(self, max_width):
-            self.max_width = max_width
-            self.pos = torch.zeros((10))
-        def __call__(self, img):
-            padding_left = random.randint(0, (self.max_width // 2) - img.size[0])
-            padding_right = self.max_width - img.size[0] - padding_left
-            padding = (padding_left, 0, padding_right, 0)
-            pos = self.pos.clone()
-            pos[padding_left//10] = 1
-            return ImageOps.expand(img, padding), pos
-
-    class PadAndPosition:
-        def __init__(self, transform):
-            self.transform = transform
-        def __call__(self, img):
-            new_img, position = self.transform(img)
-            return transforms.ToTensor()(new_img), transforms.ToTensor()(img), position
-    
-    # Load MNIST datasets, order: [notional_retina, cropped_digit, one-hot_position_vector]   
-    train_dataset_right = datasets.CIFAR10(
-        root='./cifar_data/',
-        train=True,
-        download=True,
-        transform=transforms.Compose([
-            transforms.Resize((imgsize, imgsize)),
-            PadAndPosition(translate_to_right(retina_size)),
-        ])
-    )
-
-    train_dataset_left = datasets.CIFAR10(
-        root='./cifar_data/',
-        train=True,
-        download=True,
-        transform=transforms.Compose([
-            transforms.Resize((imgsize, imgsize)),
-            PadAndPosition(translate_to_left(retina_size)),
-        ])
-    )
-
-    right_indices_0_to_4 = [idx for idx, target in enumerate(train_dataset_right.targets) if target in [0, 1, 2, 3, 4]]
-    #right_indices_5_to_9 = [idx for idx, target in enumerate(train_dataset_right.targets) if target not in [0, 1, 2, 3, 4]]
-
-    left_indices_5_to_9 = [idx for idx, target in enumerate(train_dataset_left.targets) if target in [5, 6, 7, 8, 9]]
-    #left_indices_0_to_4 = [idx for idx, target in enumerate(train_dataset_left.targets) if target not in [5, 6, 7, 8, 9]]
-
-    right_subset_0_to_4 = Subset(train_dataset_right, right_indices_0_to_4) #a subset consisting of only digits < 5 and all translated to the right
-    left_subset_5_to_9 = Subset(train_dataset_left, left_indices_5_to_9) #a subset consisting of only digits >= 5 and all translated to the left
-
-    #right_subset_5_to_9 = Subset(train_dataset_right, right_indices_5_to_9) #a subset consisting of only digits >= 5 and all translated to the right
-    #left_subset_0_to_4 = Subset(train_dataset_left, left_indices_0_to_4) #a subset consisting of only digits < 5 and all translated to the left
-
-    #combine these subsets to build a set of all digits where digits < 5 are translated to the right and digits >= 5 to the left
-    total_train_dataset = right_subset_0_to_4 + left_subset_5_to_9
-
-    #combine these subsets to build a set of all digits where digits < 5 are translated to the left and digits >= 5 to the right
-    #total_test_dataset = right_subset_5_to_9 + left_subset_0_to_4
-
-    train_loader_total = torch.utils.data.DataLoader(total_train_dataset, shuffle = True, batch_size=bs, drop_last=True)
-
-    #test_loader_total = torch.utils.data.DataLoader(total_test_dataset, shuffle = True, batch_size=bs, drop_last=True)
-
-    train_loader_noSkip = train_loader_total
-    train_loader_skip = train_loader_total
-    #test_loader_noSkip = test_loader_total
-    #test_loader_skip = test_loader_total
-
-elif data_set_flag == 'mnist':
-    bs = 100 #batch size
-    nw = 1 #number of workers
-
-    # MNIST and Fashion MNIST Datasets
-    train_dataset_MNIST = datasets.MNIST(root='./mnist_data/', train=True,
-                                transform=transforms.Compose([Colorize_func, transforms.RandomAffine(degrees=0, translate=(0.3, 0)), transforms.ToTensor()]), download=True)
-
-    #transforms.RandomAffine(degrees=0, translate=(0.1, 0)),  # 10% translation in x and y direction
-    test_dataset_MNIST = datasets.MNIST(root='./mnist_data/', train=False,
-                                transform=transforms.Compose([Colorize_func, transforms.ToTensor()]), download=False)
-
-    ftrain_dataset = datasets.FashionMNIST(root='./fashionmnist_data/', train=True,
-                                        transform=transforms.Compose([Colorize_func, transforms.ToTensor()]),
-                                        download=True)
-    ftest_dataset = datasets.FashionMNIST(root='./fashionmnist_data/', train=False,
-                                        transform=transforms.Compose([Colorize_func, transforms.ToTensor()]),
-                                        download=False)
-
-    train_mnist_labels= train_dataset_MNIST.targets
-    ftrain_dataset.targets=ftrain_dataset.targets+ 10
-    train_fmnist_labels=ftrain_dataset.targets
-
-    test_mnist_labels= test_dataset_MNIST.targets
-    ftest_dataset.targets=ftest_dataset.targets+10
-    test_fmnist_label= ftest_dataset.targets
-
-    #skip connection dataset
-    train_skip_mnist= datasets.MNIST(root='./mnist_data/', train=True,
-                                transform=transforms.Compose([Colorize_func,transforms.RandomRotation(90), transforms.RandomCrop(size=28, padding= 8), transforms.ToTensor()]), download=True)
-    train_skip_fmnist= datasets.FashionMNIST(root='./fashionmnist_data/', train=True,
-                                        transform=transforms.Compose([Colorize_func, transforms.RandomRotation(90), transforms.RandomCrop(size=28, padding= 8),transforms.ToTensor()]),
-                                        download=True)
-
-
-    train_dataset_skip= torch.utils.data.ConcatDataset((train_skip_mnist ,train_skip_fmnist)) #training skip connection with all images
-    #test_dataset_skip= torch.utils.data.ConcatDataset((test_dataset_MNIST ,test_skip_fmnist))
-
-    train_dataset = torch.utils.data.ConcatDataset((train_dataset_MNIST ,ftrain_dataset))
-    test_dataset = torch.utils.data.ConcatDataset((test_dataset_MNIST ,ftest_dataset))
-
-    train_loader_noSkip = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=bs, shuffle=True,  drop_last= True)
-    train_loader_skip = torch.utils.data.DataLoader(dataset=train_dataset_skip, batch_size=bs, shuffle=True,  drop_last= True)
-    test_loader_noSkip = torch.utils.data.DataLoader(dataset=test_dataset, batch_size=bs, shuffle=False, drop_last=True)
-    test_loader_skip = torch.utils.data.DataLoader(dataset=test_dataset, batch_size=bs, shuffle=False,  drop_last=True)
-
-
-    #train and test the classifiers on MNIST and f-MNIST
-    bs_tr=120000
-    bs_te=20000
-
-    train_loader_class= torch.utils.data.DataLoader(dataset=train_dataset, batch_size=bs_tr, shuffle=True)
-    test_loader_class= torch.utils.data.DataLoader(dataset=test_dataset, batch_size=bs_te, shuffle=False)
-
-elif data_set_flag == 'cifar10':
-    bs = 100
-    nw = 8
-    bs_tr=60000
-    bs_te=10000
-    imgsize = 32
-
-    transform = transforms.Compose(
-        [transforms.Resize(imgsize),
-            transforms.ToTensor(),])
-
-    def dataset_with_indices(cls):
-        """
-        Modifies the given Dataset class to return a tuple data, target, index
-        instead of just data, target.
-        """
-
-        def __getitem__(self, index):
-            data, target = cls.__getitem__(self, index)
-            return data, target, index
-
-        return type(cls.__name__, (cls,), {
-        '   __getitem__': __getitem__,})
-
-    #makes a new data set that returns indices
-    CIFAR10windicies = dataset_with_indices(datasets.CIFAR10)
-
-    train_dataset = CIFAR10windicies(root='./cifar_data/', train=True ,transform=transform, download=True)
-    test_dataset = CIFAR10windicies(root='./cifar_data/', train=False, transform=transform, download=False)
-
-    train_colorlabels = thecolorlabels([bs_tr])
-    test_colorlabels = thecolorlabels([bs_te])
-
-    train_shapelabels=train_dataset.targets
-    test_shapelabels=test_dataset.targets
-
-    # Data Loader (Input Pipeline)
-    train_loader = torch.utils.data.DataLoader(dataset =train_dataset, batch_size=bs, shuffle=True,num_workers = nw)
-    train_loader_class = torch.utils.data.DataLoader(dataset =train_dataset, batch_size=bs_tr, shuffle=False,num_workers = nw)
-    test_loader = torch.utils.data.DataLoader(dataset=test_dataset, batch_size=bs, shuffle=True,num_workers = nw)
-    test_loader_class = torch.utils.data.DataLoader(dataset=test_dataset, batch_size=bs_te, shuffle=False,num_workers = nw)
-
-    train_loader_noSkip = train_loader
-    train_loader_skip = train_loader
-    test_loader_noSkip = test_loader
-    test_loader_skip = test_loader
-
-    #NEW
-    #print('Loading the remapped versions of Cifar10')
-    #colorremapstrain =torch.from_numpy(np.asarray(torch.load('3clusterstrain.pth'))).permute(0,2,1).type(torch.cuda.FloatTensor)/255
-    #colorremapstest =torch.from_numpy(np.asarray(torch.load('3clusterstest.pth'))).permute(0,2,1).type(torch.cuda.FloatTensor)/255
-
-
-#the modified VAE
-class VAE_FC(nn.Module):
-    def __init__(self, x_dim, h_dim1, h_dim2, z_dim):
-        super(VAE_FC, self).__init__()
-
-        # encoder part
-        self.fc1 = nn.Linear(x_dim, h_dim1)
-        self.fc2 = nn.Linear(h_dim1, h_dim2)
-        self.fc31 = nn.Linear(h_dim2, z_dim)  # shape
-        self.fc32 = nn.Linear(h_dim2, z_dim)
-        self.fc33 = nn.Linear(h_dim2, z_dim)  # color
-        self.fc34 = nn.Linear(h_dim2, z_dim)
-        #decoder part
-        self.fc4s = nn.Linear(z_dim, h_dim2)  # shape
-        self.fc4c = nn.Linear(z_dim, h_dim2)  # color
-        self.fc5 = nn.Linear(h_dim2, h_dim1)
-        self.fc6 = nn.Linear(h_dim1, x_dim)
-
-        self.fc7 = nn.Linear(h_dim1, h_dim1)
-
-    def encoder(self, x):
-        h = F.relu(self.fc1(x))
-        hskip = F.relu(self.fc7(h))
-        h = F.relu(self.fc2(h))
-        return self.fc31(h), self.fc32(h), self.fc33(h), self.fc34(h), hskip  # mu, log_var
-
-    def sampling(self, mu, log_var):
-        std = torch.exp(0.5 * log_var)
-        eps = torch.randn_like(std)
-        return mu + eps * std
-
-    def decoder_noskip(self, z_shape, z_color, hskip):
-        h = F.relu(self.fc4c(z_color)) + F.relu(self.fc4s(z_shape))
-        h = F.relu(self.fc5(h))
-        return torch.sigmoid(self.fc6(h))
-
-    def decoder_color(self, z_shape, z_color, hskip):
-        h = F.relu(self.fc4c(z_color))
-        h = F.relu(self.fc5(h))
-        return torch.sigmoid(self.fc6(h))
-
-    def decoder_shape(self, z_shape, z_color, hskip):
-        h = F.relu(self.fc4s(z_shape))
-        h = F.relu(self.fc5(h))
-        return torch.sigmoid(self.fc6(h))
-
-    def decoder_all(self, z_shape, z_color, hskip):
-        h = F.relu(self.fc4c(z_color)) + F.relu(self.fc4s(z_shape))
-        h = (F.relu(self.fc5(h)) + hskip)
-        return torch.sigmoid(self.fc6(h))
-
-    def decoder_skip(self, z_shape, z_color, hskip):
-        return torch.sigmoid(self.fc6(hskip))
-
-    def forward_layers(self, l1,l2, layernum,whichdecode):
-        hskip = F.relu(self.fc7(l1))
-        if layernum == 1:
-
-           h = F.relu(self.fc2(l1))
-           mu_shape = self.fc31(h)
-           log_var_shape = self.fc32(h)
-           mu_color = self.fc33(h)
-           log_var_color = self.fc34(h)
-           z_shape = self.sampling(mu_shape, log_var_shape)
-           z_color = self.sampling(mu_color, log_var_color)
-        elif layernum==2:
-            
-            h=l2
-            mu_shape = self.fc31(h)
-            log_var_shape = self.fc32(h)
-            mu_color = self.fc33(h)
-            log_var_color = self.fc34(h)
-            z_shape = self.sampling(mu_shape, log_var_shape)
-            z_color = self.sampling(mu_color, log_var_color)
-
-        if (whichdecode == 'all'):
-            output = self.decoder_all(z_shape, z_color, hskip)
-        elif (whichdecode == 'skip'):
-            output = self.decoder_skip(z_shape, z_color, hskip)
-        else:
-            output = self.decoder_noskip(z_shape, z_color, hskip)
-
-        return output, mu_color, log_var_color, mu_shape, log_var_shape
-
-    def forward(self, x, whichdecode, detatchgrad='none'):
-        mu_shape, log_var_shape, mu_color, log_var_color, hskip = self.encoder(x.view(-1, 784 * 3))
-        if (detatchgrad == 'shape'):
-            z_shape = self.sampling(mu_shape, log_var_shape).detach()
-        else:
-            z_shape = self.sampling(mu_shape, log_var_shape)
-
-        if (detatchgrad == 'color'):
-            z_color = self.sampling(mu_color, log_var_color).detach()
-        else:
-            z_color = self.sampling(mu_color, log_var_color)
-
-        if (whichdecode == 'all'):
-            output = self.decoder_all(z_shape, z_color, hskip)
-        elif (whichdecode == 'noskip'):
-            output = self.decoder_noskip(z_shape, z_color, 0)
-        elif (whichdecode == 'skip'):
-            output = self.decoder_skip(0, 0, hskip)
-        elif (whichdecode == 'color'):
-            output = self.decoder_color(0, z_color, 0)
-        elif (whichdecode == 'shape'):
-            output = self.decoder_shape(z_shape, 0, 0)
-
-        return output, mu_color, log_var_color, mu_shape, log_var_shape
+def dataset_builder(data_set_flag):
+    if data_set_flag == 'padded_mnist':
+        bs = 100
+        class translate_to_right:
+            def __init__(self, max_width):
+                self.max_width = max_width
+                self.pos = torch.zeros((100))
+            def __call__(self, img):
+                padding_left = random.randint(self.max_width // 2, self.max_width - img.size[0])
+                padding_right = self.max_width - img.size[0] - padding_left
+                padding = (padding_left, 0, padding_right, 0)
+                pos = self.pos.clone()
+                pos[padding_left] = 1
+                return ImageOps.expand(img, padding), pos
+
+        class translate_to_left:
+            def __init__(self, max_width):
+                self.max_width = max_width
+                self.pos = torch.zeros((100))
+            def __call__(self, img):
+                padding_left = random.randint(0, (self.max_width // 2) - img.size[0])
+                padding_right = self.max_width - img.size[0] - padding_left
+                padding = (padding_left, 0, padding_right, 0)
+                pos = self.pos.clone()
+                pos[padding_left] = 1
+                return ImageOps.expand(img, padding), pos
+
+        class PadAndPosition:
+            def __init__(self, transform):
+                self.transform = transform
+            def __call__(self, img):
+                new_img, position = self.transform(img)
+                return transforms.ToTensor()(new_img), transforms.ToTensor()(img), position
+        
+        # Load MNIST datasets, order: [notional_retina, cropped_digit, one-hot_position_vector]   
+        train_dataset_right = datasets.MNIST(
+            root='./data',
+            train=True,
+            download=True,
+            transform=transforms.Compose([
+                Colorize_func,
+                PadAndPosition(translate_to_right(retina_size)),
+            ])
+        )
+
+        train_dataset_left = datasets.MNIST(
+            root='./data',
+            train=True,
+            download=True,
+            transform=transforms.Compose([
+                Colorize_func,
+                PadAndPosition(translate_to_left(retina_size)),
+            ])
+        )
+
+        train_skip_mnist= datasets.MNIST(root='./mnist_data/', train=True,
+                               transform=transforms.Compose([Colorize_func,transforms.RandomRotation(90), transforms.RandomCrop(size=28, padding= 8), transforms.ToTensor()]), download=True)
+        #train_skip_fmnist= datasets.FashionMNIST(root='./fashionmnist_data/', train=True,
+         #                              transform=transforms.Compose([Colorize_func, transforms.RandomRotation(90), transforms.RandomCrop(size=28, padding= 8),transforms.ToTensor()]),
+          #                             download=True)
+
+        right_indices_0_to_4 = [idx for idx, target in enumerate(train_dataset_right.targets) if target in [0, 1, 2, 3, 4]]
+        right_indices_5_to_9 = [idx for idx, target in enumerate(train_dataset_right.targets) if target not in [0, 1, 2, 3, 4]]
+
+        left_indices_5_to_9 = [idx for idx, target in enumerate(train_dataset_left.targets) if target in [5, 6, 7, 8, 9]]
+        left_indices_0_to_4 = [idx for idx, target in enumerate(train_dataset_left.targets) if target not in [5, 6, 7, 8, 9]]
+
+        right_subset_0_to_4 = Subset(train_dataset_right, right_indices_0_to_4) #a subset consisting of only digits < 5 and all translated to the right
+        left_subset_5_to_9 = Subset(train_dataset_left, left_indices_5_to_9) #a subset consisting of only digits >= 5 and all translated to the left
+
+        right_subset_5_to_9 = Subset(train_dataset_right, right_indices_5_to_9) #a subset consisting of only digits >= 5 and all translated to the right
+        left_subset_0_to_4 = Subset(train_dataset_left, left_indices_0_to_4) #a subset consisting of only digits < 5 and all translated to the left
+
+        #combine these subsets to build a set of all digits where digits < 5 are translated to the right and digits >= 5 to the left
+        total_train_dataset = right_subset_0_to_4 + left_subset_5_to_9
+
+        #combine these subsets to build a set of all digits where digits < 5 are translated to the left and digits >= 5 to the right
+        total_test_dataset = right_subset_5_to_9 + left_subset_0_to_4
+
+        train_loader_total = torch.utils.data.DataLoader(total_train_dataset, shuffle = True, batch_size=bs, drop_last=True)
+
+        test_loader_total = torch.utils.data.DataLoader(total_test_dataset, shuffle = True, batch_size=bs, drop_last=True)
+
+        skip_loader_total = torch.utils.data.DataLoader(train_skip_mnist, shuffle = True, batch_size=bs, drop_last=True)
+
+        train_loader_noSkip = train_loader_total
+        train_loader_skip = skip_loader_total #t
+        test_loader_noSkip = test_loader_total
+        test_loader_skip = skip_loader_total
+
+    elif data_set_flag == 'padded_cifar10':
+        bs = 100
+        class translate_to_right:
+            def __init__(self, max_width):
+                self.max_width = max_width
+                self.pos = torch.zeros((10))
+            def __call__(self, img):
+                padding_left = random.randint(self.max_width // 2, self.max_width - img.size[0])
+                padding_right = self.max_width - img.size[0] - padding_left
+                padding = (padding_left, 0, padding_right, 0)
+                pos = self.pos.clone()
+                pos[padding_left//10] = 1
+                return ImageOps.expand(img, padding), pos
+
+        class translate_to_left:
+            def __init__(self, max_width):
+                self.max_width = max_width
+                self.pos = torch.zeros((10))
+            def __call__(self, img):
+                padding_left = random.randint(0, (self.max_width // 2) - img.size[0])
+                padding_right = self.max_width - img.size[0] - padding_left
+                padding = (padding_left, 0, padding_right, 0)
+                pos = self.pos.clone()
+                pos[padding_left//10] = 1
+                return ImageOps.expand(img, padding), pos
+
+        class PadAndPosition:
+            def __init__(self, transform):
+                self.transform = transform
+            def __call__(self, img):
+                new_img, position = self.transform(img)
+                return transforms.ToTensor()(new_img), transforms.ToTensor()(img), position
+        
+        # Load MNIST datasets, order: [notional_retina, cropped_digit, one-hot_position_vector]   
+        train_dataset_right = datasets.CIFAR10(
+            root='./cifar_data/',
+            train=True,
+            download=True,
+            transform=transforms.Compose([
+                transforms.Resize((imgsize, imgsize)),
+                PadAndPosition(translate_to_right(retina_size)),
+            ])
+        )
+
+        train_dataset_left = datasets.CIFAR10(
+            root='./cifar_data/',
+            train=True,
+            download=True,
+            transform=transforms.Compose([
+                transforms.Resize((imgsize, imgsize)),
+                PadAndPosition(translate_to_left(retina_size)),
+            ])
+        )
+
+        right_indices_0_to_4 = [idx for idx, target in enumerate(train_dataset_right.targets) if target in [0, 1, 2, 3, 4]]
+        #right_indices_5_to_9 = [idx for idx, target in enumerate(train_dataset_right.targets) if target not in [0, 1, 2, 3, 4]]
+
+        left_indices_5_to_9 = [idx for idx, target in enumerate(train_dataset_left.targets) if target in [5, 6, 7, 8, 9]]
+        #left_indices_0_to_4 = [idx for idx, target in enumerate(train_dataset_left.targets) if target not in [5, 6, 7, 8, 9]]
+
+        right_subset_0_to_4 = Subset(train_dataset_right, right_indices_0_to_4) #a subset consisting of only digits < 5 and all translated to the right
+        left_subset_5_to_9 = Subset(train_dataset_left, left_indices_5_to_9) #a subset consisting of only digits >= 5 and all translated to the left
+
+        #right_subset_5_to_9 = Subset(train_dataset_right, right_indices_5_to_9) #a subset consisting of only digits >= 5 and all translated to the right
+        #left_subset_0_to_4 = Subset(train_dataset_left, left_indices_0_to_4) #a subset consisting of only digits < 5 and all translated to the left
+
+        #combine these subsets to build a set of all digits where digits < 5 are translated to the right and digits >= 5 to the left
+        total_train_dataset = right_subset_0_to_4 + left_subset_5_to_9
+
+        #combine these subsets to build a set of all digits where digits < 5 are translated to the left and digits >= 5 to the right
+        #total_test_dataset = right_subset_5_to_9 + left_subset_0_to_4
+
+        train_loader_total = torch.utils.data.DataLoader(total_train_dataset, shuffle = True, batch_size=bs, drop_last=True)
+
+        #test_loader_total = torch.utils.data.DataLoader(total_test_dataset, shuffle = True, batch_size=bs, drop_last=True)
+
+        train_loader_noSkip = train_loader_total
+        train_loader_skip = train_loader_total
+        #test_loader_noSkip = test_loader_total
+        #test_loader_skip = test_loader_total
+
+    elif data_set_flag == 'mnist':
+        bs = 100 #batch size
+        nw = 1 #number of workers
+
+        # MNIST and Fashion MNIST Datasets
+        train_dataset_MNIST = datasets.MNIST(root='./mnist_data/', train=True,
+                                    transform=transforms.Compose([Colorize_func, transforms.RandomAffine(degrees=0, translate=(0.3, 0)), transforms.ToTensor()]), download=True)
+
+        #transforms.RandomAffine(degrees=0, translate=(0.1, 0)),  # 10% translation in x and y direction
+        test_dataset_MNIST = datasets.MNIST(root='./mnist_data/', train=False,
+                                    transform=transforms.Compose([Colorize_func, transforms.ToTensor()]), download=False)
+
+        ftrain_dataset = datasets.FashionMNIST(root='./fashionmnist_data/', train=True,
+                                            transform=transforms.Compose([Colorize_func, transforms.ToTensor()]),
+                                            download=True)
+        ftest_dataset = datasets.FashionMNIST(root='./fashionmnist_data/', train=False,
+                                            transform=transforms.Compose([Colorize_func, transforms.ToTensor()]),
+                                            download=False)
+
+        train_mnist_labels= train_dataset_MNIST.targets
+        ftrain_dataset.targets=ftrain_dataset.targets+ 10
+        train_fmnist_labels=ftrain_dataset.targets
+
+        test_mnist_labels= test_dataset_MNIST.targets
+        ftest_dataset.targets=ftest_dataset.targets+10
+        test_fmnist_label= ftest_dataset.targets
+
+        #skip connection dataset
+        train_skip_mnist= datasets.MNIST(root='./mnist_data/', train=True,
+                                    transform=transforms.Compose([Colorize_func,transforms.RandomRotation(90), transforms.RandomCrop(size=28, padding= 8), transforms.ToTensor()]), download=True)
+        train_skip_fmnist= datasets.FashionMNIST(root='./fashionmnist_data/', train=True,
+                                            transform=transforms.Compose([Colorize_func, transforms.RandomRotation(90), transforms.RandomCrop(size=28, padding= 8),transforms.ToTensor()]),
+                                            download=True)
+
+
+        train_dataset_skip= torch.utils.data.ConcatDataset((train_skip_mnist ,train_skip_fmnist)) #training skip connection with all images
+        #test_dataset_skip= torch.utils.data.ConcatDataset((test_dataset_MNIST ,test_skip_fmnist))
+
+        train_dataset = torch.utils.data.ConcatDataset((train_dataset_MNIST ,ftrain_dataset))
+        test_dataset = torch.utils.data.ConcatDataset((test_dataset_MNIST ,ftest_dataset))
+
+        train_loader_noSkip = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=bs, shuffle=True,  drop_last= True)
+        train_loader_skip = torch.utils.data.DataLoader(dataset=train_dataset_skip, batch_size=bs, shuffle=True,  drop_last= True)
+        test_loader_noSkip = torch.utils.data.DataLoader(dataset=test_dataset, batch_size=bs, shuffle=False, drop_last=True)
+        test_loader_skip = torch.utils.data.DataLoader(dataset=test_dataset, batch_size=bs, shuffle=False,  drop_last=True)
+
+
+        #train and test the classifiers on MNIST and f-MNIST
+        bs_tr=120000
+        bs_te=20000
+
+        train_loader_class= torch.utils.data.DataLoader(dataset=train_dataset, batch_size=bs_tr, shuffle=True)
+        test_loader_class= torch.utils.data.DataLoader(dataset=test_dataset, batch_size=bs_te, shuffle=False)
+
+    elif data_set_flag == 'cifar10':
+        bs = 100
+        nw = 8
+        bs_tr=60000
+        bs_te=10000
+        imgsize = 32
+
+        transform = transforms.Compose(
+            [transforms.Resize(imgsize),
+                transforms.ToTensor(),])
+
+        def dataset_with_indices(cls):
+            """
+            Modifies the given Dataset class to return a tuple data, target, index
+            instead of just data, target.
+            """
+
+            def __getitem__(self, index):
+                data, target = cls.__getitem__(self, index)
+                return data, target, index
+
+            return type(cls.__name__, (cls,), {
+            '   __getitem__': __getitem__,})
+
+        #makes a new data set that returns indices
+        CIFAR10windicies = dataset_with_indices(datasets.CIFAR10)
+
+        train_dataset = CIFAR10windicies(root='./cifar_data/', train=True ,transform=transform, download=True)
+        test_dataset = CIFAR10windicies(root='./cifar_data/', train=False, transform=transform, download=False)
+
+        train_colorlabels = thecolorlabels([bs_tr])
+        test_colorlabels = thecolorlabels([bs_te])
+
+        train_shapelabels=train_dataset.targets
+        test_shapelabels=test_dataset.targets
+
+        # Data Loader (Input Pipeline)
+        train_loader = torch.utils.data.DataLoader(dataset =train_dataset, batch_size=bs, shuffle=True,num_workers = nw)
+        train_loader_class = torch.utils.data.DataLoader(dataset =train_dataset, batch_size=bs_tr, shuffle=False,num_workers = nw)
+        test_loader = torch.utils.data.DataLoader(dataset=test_dataset, batch_size=bs, shuffle=True,num_workers = nw)
+        test_loader_class = torch.utils.data.DataLoader(dataset=test_dataset, batch_size=bs_te, shuffle=False,num_workers = nw)
+
+        train_loader_noSkip = train_loader
+        train_loader_skip = train_loader
+        test_loader_noSkip = test_loader
+        test_loader_skip = test_loader
+
+        #NEW
+        #print('Loading the remapped versions of Cifar10')
+        #colorremapstrain =torch.from_numpy(np.asarray(torch.load('3clusterstrain.pth'))).permute(0,2,1).type(torch.cuda.FloatTensor)/255
+        #colorremapstest =torch.from_numpy(np.asarray(torch.load('3clusterstest.pth'))).permute(0,2,1).type(torch.cuda.FloatTensor)/255
+    return train_loader_noSkip, train_loader_skip, test_loader_noSkip, test_loader_skip
 
 # modified CNN VAE
 class VAE_CNN(nn.Module):
     def __init__(self, x_dim, h_dim1, h_dim2, z_dim, l_dim):
         super(VAE_CNN, self).__init__()
         # encoder part
+        self.l_dim = l_dim
         self.conv1 = nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(16)
         self.conv2 = nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1, bias=False)
@@ -565,9 +467,10 @@ class VAE_CNN(nn.Module):
         self.fc4c = nn.Linear(z_dim, h_dim2)  # color
         self.fc4l = nn.Linear(z_dim, l_dim)  # location
         self.fc5 = nn.Linear(h_dim2, int(imgsize/4) * int(imgsize/4) * 16)
+        self.fc8 = nn.Linear(h_dim2, h_dim2)
         
         #self.fc5 = nn.Linear(h_dim2, 10000)
-        self.fc5l = nn.Linear(l_dim, l_dim)
+        #self.fc5l = nn.Linear(l_dim, l_dim)
         #self.fc_bn5 = nn.BatchNorm1d(int(retina_size/4) * int(imgsize/4) * 16)  # Decoder
         self.conv5 = nn.ConvTranspose2d(16, 64, kernel_size=3, stride=2, padding=1, output_padding=1, bias=False)
         self.bn5 = nn.BatchNorm2d(64)
@@ -578,24 +481,21 @@ class VAE_CNN(nn.Module):
         self.conv8 = nn.ConvTranspose2d(16, 3, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn8 = nn.BatchNorm2d(3)
         # combine recon and location into retina
-        self.fc6 = nn.Linear(imgsize+10,(imgsize//2)+(retina_size//2)) # what happens when fc size is increased
-        self.fc7 = nn.Linear((imgsize//2)+(retina_size//2), retina_size)
-        #self.fc6 = nn.Linear((imgsize+10) * imgsize * 3, imgsize * (retina_size//2) * 3)
-        #self.fc7 = nn.Linear(imgsize * (retina_size//2) * 3, retina_size * imgsize * 3)
+        #self.fc6 = nn.Linear(imgsize+8,(imgsize//2)+(retina_size//2)) # what happens when fc size is increased
+        #self.fc7 = nn.Linear((imgsize//2)+(retina_size//2), retina_size)
+        self.fc6 = nn.Linear((imgsize+8) * 3, (retina_size//2) * 4)
+        self.fc7 = nn.Linear((retina_size//2) * 4, retina_size * 3)
         self.relu = nn.ReLU()
         self.skipconv = nn.Conv2d(16,16,kernel_size=1,stride=1,padding =0,bias=False)
 
-    def encoder(self, x):
-        l = x[2].cuda()
-        x = x[1].cuda()
-        #save_image(l[0], f'{args.dir}/orig.png')
+    def encoder(self, x, l):
         h = self.relu(self.bn1(self.conv1(x)))
-        hskip = h
         h = self.relu(self.bn2(self.conv2(h)))
         h = self.relu(self.bn3(self.conv3(h)))
         h = self.relu(self.bn4(self.conv4(h)))
         h = h.view(-1, int(imgsize / 4) * int(imgsize / 4) * 16)
         h = self.relu(self.fc_bn2(self.fc2(h)))
+        hskip = self.fc8(h) # skip con fc2 to fc5
 
         return self.fc31(h), self.fc32(h), self.fc33(h), self.fc34(h), self.fc35(l), self.fc36(l), hskip # mu, log_var
     
@@ -619,14 +519,14 @@ class VAE_CNN(nn.Module):
         h = self.conv8(h).detach().view(-1, 3, imgsize, imgsize) #detach conv
         h = torch.sigmoid(h)
         # location vector recon
-        l = F.relu(self.fc4l(z_location))
-        l = self.fc5l(l).detach().view(-1,1,1,10) # reshape to concat
+        l = z_location.detach() #cont. repr of location
+        l = l.view(-1,1,1,8)
         l = torch.sigmoid(l)
-        l = l.expand(-1, 3, imgsize, 10) # reshape to concat
+        l = l.expand(-1, 3, imgsize, 8) # reshape to concat
         # combine into retina
         h = torch.cat([h,l], dim = 3)
-        #b_dim = h.size()[0]
-        #h = h.view(b_dim,-1)
+        b_dim = h.size()[0]*h.size()[2]
+        h = h.view(b_dim,-1)
         h = self.relu(self.fc6(h))
         h = self.fc7(h).view(-1,3,imgsize,retina_size)
         return torch.sigmoid(h)
@@ -650,8 +550,7 @@ class VAE_CNN(nn.Module):
         return torch.sigmoid(h)
 
     def decoder_location(self, z_shape, z_color, hskip, z_location):
-        h = F.relu(self.fc4l(z_location))
-        h = self.fc5l(h)
+        h = self.fc4l(z_location)
         return torch.sigmoid(h)
 
     def decoder_cropped(self, z_shape, z_color, z_location, hskip):
@@ -662,16 +561,38 @@ class VAE_CNN(nn.Module):
         h = self.relu(self.bn7(self.conv7(h)))
         h = self.conv8(h).view(-1, 3, imgsize, imgsize)
         return torch.sigmoid(h)
-    '''
-    def decoder_skip(self, z_shape, z_color, hskip):
-        #h = F.relu(hskip)
-        #h = F.relu(self.fc5(h)).view(-1, 16, int(imgsize/4), int(imgsize/4))
-        #h = self.relu(self.bn5(self.conv5(h)))
-        #h = self.relu(self.bn6(self.conv6(h)))
-        #h = self.relu(self.bn7(self.conv7(h)))
-        h = self.conv8(hskip).view(-1, 3, imgsize, retina_size)
+    
+    def decoder_skip_cropped(self, z_shape, z_color, z_location, hskip):
+        h = F.relu(hskip)
+        h = F.relu(self.fc5(h)).view(-1, 16, int(imgsize/4), int(imgsize/4))
+        h = self.relu(self.bn5(self.conv5(h)))
+        h = self.relu(self.bn6(self.conv6(h)))
+        h = self.relu(self.bn7(self.conv7(h)))
+        h = self.conv8(h).view(-1, 3, imgsize, imgsize)
         return torch.sigmoid(h)
-    '''
+
+    def decoder_skip_retinal(self, z_shape, z_color, z_location, hskip):
+        # digit recon
+        h = F.relu(hskip)
+        h = F.relu(self.fc5(h)).view(-1, 16, int(imgsize/4), int(imgsize/4))
+        h = self.relu(self.bn5(self.conv5(h)))
+        h = self.relu(self.bn6(self.conv6(h)))
+        h = self.relu(self.bn7(self.conv7(h)))
+        h = self.conv8(h).view(-1, 3, imgsize, imgsize).detach()
+        h = torch.sigmoid(h)
+        # location vector recon
+        l = z_location.detach() #cont. repr of location
+        l = l.view(-1,1,1,8)
+        l = torch.sigmoid(l)
+        l = l.expand(-1, 3, imgsize, 8) # reshape to concat
+        # combine into retina
+        h = torch.cat([h,l], dim = 3)
+        b_dim = h.size()[0]*h.size()[2]
+        h = h.view(b_dim,-1)
+        h = self.relu(self.fc6(h))
+        h = self.fc7(h).view(-1,3,imgsize,retina_size)
+        return torch.sigmoid(h)
+    
     def activations(self, z_shape, z_color, z_location):
         # add location z repr into fc4l
         h = F.relu(self.fc4c(z_color)) + F.relu(self.fc4s(z_shape)) + F.relu(self.fc4l(z_location))
@@ -681,26 +602,59 @@ class VAE_CNN(nn.Module):
         fc5 = self.fc5(h)
         return fc4c, fc4s, fc4l, fc5
 
-    def forward_layer1(self, h, whichdecode):  # decode fromo the layer 1 activations
-        hskip = F.relu(self.fc7(h))
-        h = F.relu(self.fc2(h))
-        mu_shape = self.fc31(h)
-        log_var_shape = self.fc32(h)
-        mu_color = self.fc33(h)
-        log_var_color = self.fc34(h)
-        z_shape = self.sampling(mu_shape, log_var_shape)
-        z_color = self.sampling(mu_color, log_var_color)
-        if (whichdecode == 'all'):
-            output = self.decoder_all(z_shape, z_color, hskip)
-        elif (whichdecode == 'skip'):
-            output = self.decoder_skip(z_shape, z_color, hskip)
-        else:
-            output = self.decoder_noskip(z_shape, z_color, hskip)
+    def forward_layers(self, l1, l2, layernum, whichdecode):
+        if layernum == 1:
+            h = F.relu(self.bn2(self.conv2(l1)))
+            h = self.relu(self.bn3(self.conv3(h)))
+            h = self.relu(self.bn4(self.conv4(h)))
+            h = h.view(-1, int(imgsize / 4) * int(imgsize / 4) * 16)
+            h = self.relu(self.fc_bn2(self.fc2(h)))
+            hskip = self.fc8(h)
+            mu_shape = self.fc31(h)
+            log_var_shape = self.fc32(h)
+            mu_color = self.fc33(h)
+            log_var_color = self.fc34(h)
+            z_shape = self.sampling(mu_shape, log_var_shape)
+            z_color = self.sampling(mu_color, log_var_color)
+
+        elif layernum == 2:
+            h = self.relu(self.bn3(self.conv3(l2)))
+            h = self.relu(self.bn4(self.conv4(h)))
+            h = h.view(-1, int(imgsize / 4) * int(imgsize / 4) * 16)
+            h = self.relu(self.fc_bn2(self.fc2(h)))
+            hskip = self.fc8(h)
+            mu_shape = self.fc31(h)
+            log_var_shape = self.fc32(h)
+            mu_color = self.fc33(h)
+            log_var_color = self.fc34(h)
+            z_shape = self.sampling(mu_shape, log_var_shape)
+            z_color = self.sampling(mu_color, log_var_color)
+
+        elif layernum == 3:
+            hskip = self.fc8(l1)
+            mu_shape = self.fc31(l1)
+            log_var_shape = self.fc32(l1)
+            mu_color = self.fc33(l1)
+            log_var_color = self.fc34(l1)
+            z_shape = self.sampling(mu_shape, log_var_shape)
+            z_color = self.sampling(mu_color, log_var_color)
+
+        if (whichdecode == 'cropped'):
+            output = self.decoder_cropped(z_shape, z_color, 0, hskip)
+        elif (whichdecode == 'skip_cropped'):
+            output = self.decoder_skip_cropped(z_shape, z_color, 0, hskip)
 
         return output, mu_color, log_var_color, mu_shape, log_var_shape
 
     def forward(self, x, whichdecode='noskip', keepgrad=[]):
-        mu_shape, log_var_shape, mu_color, log_var_color, mu_location, log_var_location, hskip = self.encoder(x)
+        if type(x) == list or type(x) == tuple:
+            l = x[2].cuda()
+            x = x[1].cuda()
+        else:
+            x = x.cuda()
+            l = torch.zeros(x.size()[0], self.l_dim).cuda()
+
+        mu_shape, log_var_shape, mu_color, log_var_color, mu_location, log_var_location, hskip = self.encoder(x, l)
         if ('shape' in keepgrad):
             z_shape = self.sampling(mu_shape, log_var_shape)
         else:
@@ -725,8 +679,10 @@ class VAE_CNN(nn.Module):
             output = self.decoder_cropped(z_shape,z_color, z_location, hskip)
         elif (whichdecode == 'retinal'):
             output = self.decoder_retinal(z_shape,z_color, z_location, 0)
-        elif (whichdecode == 'skip'):
-            output = self.decoder_skip(0, 0, hskip)
+        elif (whichdecode == 'skip_cropped'):
+            output = self.decoder_skip_cropped(0, 0, 0, hskip)
+        elif (whichdecode == 'skip_retinal'):
+            output = self.decoder_skip_retinal(0, 0, z_location, hskip)
         elif (whichdecode == 'color'):
             output = self.decoder_color(0, z_color , 0)
         elif (whichdecode == 'shape'):
@@ -737,13 +693,13 @@ class VAE_CNN(nn.Module):
         return output, mu_color, log_var_color, mu_shape, log_var_shape, mu_location, log_var_location
 
 # build model
-def vae_builder(vae_type = vae_type_flag, x_dim = retina_size * imgsize * 3, h_dim1 = 256, h_dim2 = 128, z_dim = 8, l_dim = 10):
+def vae_builder(vae_type = vae_type_flag, x_dim = retina_size * imgsize * 3, h_dim1 = 256, h_dim2 = 128, z_dim = 8, l_dim = 100):
     if vae_type_flag == 'FC':
         vae = VAE_FC(x_dim, h_dim1, h_dim2, z_dim)
     else:
         vae = VAE_CNN(x_dim, h_dim1, h_dim2, z_dim, l_dim)
 
-    folder_path = f'sample_{vae_type}_{data_set_flag}_smfc'
+    folder_path = f'sample_{vae_type}_{data_set_flag}'
 
     if not os.path.exists(folder_path):
         os.mkdir(folder_path)
@@ -766,7 +722,7 @@ def loss_function(recon_x, x, mu, log_var, mu_c, log_var_c):
     return BCE 
 
 def loss_function_crop(recon_x, x, mu, log_var, mu_c, log_var_c):
-    x = x[1].clone()
+    x = x.clone()
     x = x.cuda()
     BCE = F.binary_cross_entropy(recon_x, x.view(-1, retina_size * imgsize * 3), reduction='sum')
     return BCE
@@ -778,7 +734,7 @@ size1 = imgsize # temporary fix to make adjustments to the loss functions faster
 def loss_function_shape(recon_x, x, mu, log_var):
     x = x[1].clone().cuda()
     # make grayscale reconstruction
-    grayrecon = recon_x.view(bs, 3, imgsize, size1).mean(1)
+    grayrecon = recon_x.view(-1, 3, imgsize, size1).mean(1)
    
     grayrecon = torch.stack([grayrecon, grayrecon, grayrecon], dim=1)
     # here's a loss BCE based only on the grayscale reconstruction.  Use this in the return statement to kill color learning
@@ -789,7 +745,7 @@ def loss_function_shape(recon_x, x, mu, log_var):
 def loss_function_color(recon_x, x, mu, log_var):
     x = x[1].clone().cuda()
     # make color-only (no shape) reconstruction and use that as the loss function
-    recon = recon_x.clone().view(bs, 3, size1 * imgsize)
+    recon = recon_x.clone().view(-1, 3, size1 * imgsize)
     # compute the maximum color for the r,g and b channels for each digit separately
     maxr, maxi = torch.max(recon[:, 0, :], -1, keepdim=True)
     maxg, maxi = torch.max(recon[:, 1, :], -1, keepdim=True)
@@ -817,32 +773,104 @@ def loss_function_location(recon_x, x, mu, log_var):
     KLD = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
     return BCE + KLD
 
+def progress_out(data, epoch, count, skip = False):
+    sample_size = 25
+    vae.eval()
+    if skip:
+        sample = data[:sample_size]
+        with torch.no_grad():
+            shape_color_dim = imgsize
+            reconds, mu_color, log_var_color, mu_shape, log_var_shape, mu_location, log_var_location = vae(sample, 'skip_cropped') #digit from skip
+            recond, mu_color, log_var_color, mu_shape, log_var_shape, mu_location, log_var_location = vae(sample, 'cropped') #digit
+            reconc, mu_color, log_var_color, mu_shape, log_var_shape, mu_location, log_var_location = vae(sample, 'color') #color
+            recons, mu_color, log_var_color, mu_shape, log_var_shape, mu_location, log_var_location = vae(sample, 'shape') #shape
+            utils.save_image(
+            torch.cat([sample.view(sample_size, 3, imgsize, shape_color_dim).cuda(), reconds.view(sample_size, 3, imgsize, shape_color_dim).cuda(), recond.view(sample_size, 3, imgsize, shape_color_dim).cuda(),
+                    reconc.view(sample_size, 3, imgsize, shape_color_dim).cuda(), recons.view(sample_size, 3, imgsize, shape_color_dim).cuda()], 0),
+            f'sample_{vae_type_flag}_{data_set_flag}/{str(epoch + 1).zfill(5)}_{str(count).zfill(5)}.png',
+            nrow=sample_size, normalize=False, range=(-1, 1),)
 
-def train(epoch, whichdecode):
+    else:
+        sample_data = data[0]
+        sample_data[0] = sample_data[0][:sample_size]
+        sample_data[1] = sample_data[1][:sample_size]
+        sample_data[2] = sample_data[2][:sample_size]
+        sample = sample_data
+        with torch.no_grad():
+            reconl, mu_color, log_var_color, mu_shape, log_var_shape,mu_location, log_var_location = vae(sample, 'location') #location
+            reconb, mu_color, log_var_color, mu_shape, log_var_shape, mu_location, log_var_location = vae(sample, 'retinal') #retina
+            recond, mu_color, log_var_color, mu_shape, log_var_shape, mu_location, log_var_location = vae(sample, 'cropped') #digit
+            reconc, mu_color, log_var_color, mu_shape, log_var_shape, mu_location, log_var_location = vae(sample, 'color') #color
+            recons, mu_color, log_var_color, mu_shape, log_var_shape, mu_location, log_var_location = vae(sample, 'shape') #shape
+            
+        empty_retina = torch.zeros((sample_size, 3, imgsize, retina_size))
+
+        n_reconl = empty_retina.clone()
+        for i in range(len(reconl)):
+            n_reconl[i][0, :, 0:100] = reconl[i]
+            n_reconl[i][1, :, 0:100] = reconl[i]
+            n_reconl[i][2, :, 0:100] = reconl[i]            
+            
+        n_recond = empty_retina.clone()
+        for i in range(len(recond)):
+            n_recond[i][0, :, 0:imgsize] = recond[i][0]
+            n_recond[i][1, :, 0:imgsize] = recond[i][1]
+            n_recond[i][2, :, 0:imgsize] = recond[i][2]
+
+        n_reconc = empty_retina.clone()
+        for i in range(len(reconc)):
+            n_reconc[i][0, :, 0:imgsize] = reconc[i][0]
+            n_reconc[i][1, :, 0:imgsize] = reconc[i][1]
+            n_reconc[i][2, :, 0:imgsize] = reconc[i][2]
+
+        n_recons = empty_retina.clone()
+        for i in range(len(recons)):
+            n_recons[i][0, :, 0:imgsize] = recons[i][0]
+            n_recons[i][1, :, 0:imgsize] = recons[i][1]
+        line1 = torch.ones((1,2)) * 0.5
+        line1 = line1.view(1,1,1,2)
+        line1 = line1.expand(sample_size, 3, imgsize, 2)
+    
+        n_reconc = torch.cat((n_reconc,line1),dim = 3).cuda()
+        n_recons = torch.cat((n_recons,line1),dim = 3).cuda()
+        n_reconl = torch.cat((n_reconl,line1),dim = 3).cuda()
+        n_recond = torch.cat((n_recond,line1),dim = 3).cuda()
+        shape_color_dim = retina_size + 2
+        sample = torch.cat((sample[0],line1),dim = 3).cuda()
+        reconb = torch.cat((reconb,line1.cuda()),dim = 3).cuda()
+        utils.save_image(
+            torch.cat([sample.view(sample_size, 3, imgsize, shape_color_dim), reconb.view(sample_size, 3, imgsize, shape_color_dim), n_recond.view(sample_size, 3, imgsize, shape_color_dim), n_reconl.view(sample_size, 3, imgsize, shape_color_dim),
+                    n_reconc.view(sample_size, 3, imgsize, shape_color_dim), n_recons.view(sample_size, 3, imgsize, shape_color_dim)], 0),
+            f'sample_{vae_type_flag}_{data_set_flag}/{str(epoch + 1).zfill(5)}_{str(count).zfill(5)}.png',
+            nrow=sample_size, normalize=False, range=(-1, 1),)
+
+def train(epoch, whichdecode, train_loader_noSkip, train_loader_skip):
     global numcolors
     colorlabels = np.random.randint(0, 10,1000000)  # regenerate the list of color labels at the start of each test epoch
     numcolors = 0
     vae.train()
     train_loss = 0
     dataiter_noSkip = iter(train_loader_noSkip) #the latent space is trained on MNIST and f-MNIST
-    m = 5 # number of seperate training decoders used
+    m = 6 # number of seperate training decoders used
     dataiter_skip= iter(train_loader_skip) #The skip connection is trained on notMNIST
     count=0
     loader=tqdm(train_loader_noSkip)
     for i in loader:
         if (whichdecode == 'iterated'):
-           data = dataiter_noSkip.next()
-           data = data[0]
+           data_noSkip = dataiter_noSkip.next()
+           data_skip = dataiter_skip.next()
+           data = data_noSkip[0]
+           # add twocolor training for skip
            count += 1
            detachgrad = 'none'
            optimizer.zero_grad()
            if count% m == 0:
-                    whichdecode_use = 'shape'
-                    keepgrad = ['shape']
+                whichdecode_use = 'shape'
+                keepgrad = ['shape']
             
            elif count% m == 1:
-                    whichdecode_use = 'color'
-                    keepgrad = ['color']
+                whichdecode_use = 'color'
+                keepgrad = ['color']
 
            elif count% m == 2:
                whichdecode_use = 'location'
@@ -851,6 +879,11 @@ def train(epoch, whichdecode):
            elif count% m == 3:             
                whichdecode_use = 'retinal'
                keepgrad = []
+
+           elif count% m == 4:
+               data = data[1] + data_skip[0]      
+               whichdecode_use = 'skip_cropped'
+               keepgrad = ['skip']
 
            else:             
                whichdecode_use = 'cropped'
@@ -874,8 +907,12 @@ def train(epoch, whichdecode):
                 loss = loss_function(recon_batch, data, mu_shape, log_var_shape, mu_color, log_var_color)
                 loss.backward()
             
-            else:
+            elif count% m == 4:
                 loss = loss_function_crop(recon_batch, data, mu_shape, log_var_shape, mu_color, log_var_color)
+                loss.backward()
+
+            else:
+                loss = loss_function_crop(recon_batch, data[1], mu_shape, log_var_shape, mu_color, log_var_color)
                 loss.backward()
 
         train_loss += loss.item()
@@ -885,65 +922,16 @@ def train(epoch, whichdecode):
                 f'epoch: {epoch}; mse: {loss.item():.5f};'
             )
         )
-        sample_data = data
-        sample_size = 25
-        if count % 500 == 0:
-            vae.eval()
-            sample_data[0] = sample_data[0][:sample_size]
-            sample_data[1] = sample_data[1][:sample_size]
-            sample_data[2] = sample_data[2][:sample_size]
-            sample = sample_data
-            with torch.no_grad():
-                reconl, mu_color, log_var_color, mu_shape, log_var_shape,mu_location, log_var_location = vae(sample, 'location') #location
-                reconb, mu_color, log_var_color, mu_shape, log_var_shape, mu_location, log_var_location = vae(sample, 'retinal') #retina
-                recond, mu_color, log_var_color, mu_shape, log_var_shape, mu_location, log_var_location = vae(sample, 'cropped') #digit
-                reconc, mu_color, log_var_color, mu_shape, log_var_shape, mu_location, log_var_location = vae(sample, 'color') #color
-                recons, mu_color, log_var_color, mu_shape, log_var_shape, mu_location, log_var_location = vae(sample, 'shape') #shape
-            
-            empty_retina = torch.zeros((sample_size, 3, imgsize, retina_size))
-            save_image(reconl[0:4], f'{args.dir}/orign.png')
-            # reconl = remove dim shadows
-            n_reconl = empty_retina.clone()
-            for i in range(len(reconl)):
-                n_reconl[i][0, :, 0:10] = reconl[i]
-                n_reconl[i][1, :, 0:10] = reconl[i]
-                n_reconl[i][2, :, 0:10] = reconl[i]
-
-            n_recond = empty_retina.clone()
-            for i in range(len(recond)):
-                n_recond[i][0, :, 0:imgsize] = recond[i][0]
-                n_recond[i][1, :, 0:imgsize] = recond[i][1]
-                n_recond[i][2, :, 0:imgsize] = recond[i][2]
-
-            n_reconc = empty_retina.clone()
-            for i in range(len(reconc)):
-                n_reconc[i][0, :, 0:imgsize] = reconc[i][0]
-                n_reconc[i][1, :, 0:imgsize] = reconc[i][1]
-                n_reconc[i][2, :, 0:imgsize] = reconc[i][2]
-
-            n_recons = empty_retina.clone()
-            for i in range(len(recons)):
-                n_recons[i][0, :, 0:imgsize] = recons[i][0]
-                n_recons[i][1, :, 0:imgsize] = recons[i][1]
-                n_recons[i][2, :, 0:imgsize] = recons[i][2]
-            n_reconc = n_reconc.cuda()
-            n_recons = n_recons.cuda()
-            n_reconl = n_reconl.cuda()
-            n_recond = n_recond.cuda()
-            shape_color_dim = retina_size
-            sample = sample[0].cuda()
-            utils.save_image(
-                torch.cat([sample.view(sample_size, 3, imgsize, shape_color_dim), reconb.view(sample_size, 3, imgsize, shape_color_dim), n_recond.view(sample_size, 3, imgsize, shape_color_dim), n_reconl.view(sample_size, 3, imgsize, shape_color_dim),
-                           n_reconc.view(sample_size, 3, imgsize, shape_color_dim), n_recons.view(sample_size, 3, imgsize, shape_color_dim)], 0),
-                f'sample_{vae_type_flag}_{data_set_flag}_smfc/{str(epoch + 1).zfill(5)}_{str(count).zfill(5)}.png',
-                nrow=sample_size,
-                normalize=False,
-                range=(-1, 1),
-            )
+        if count % 600 == 0:
+            progress_out(data_noSkip, epoch, count)
+        elif count % 500 == 0:
+            data = data_noSkip[0][1] + data_skip[0] 
+            progress_out(data, epoch, count, skip= True)
 
     print('====> Epoch: {} Average loss: {:.4f}'.format(epoch, train_loss / len(train_loader_noSkip.dataset)))
 
-def test(whichdecode):
+#compute avg loss of retinal recon w/ skip, w/o skip, increase fc?
+def test(whichdecode, test_loader_noSkip, test_loader_skip, bs):
     vae.eval()
     global numcolors
     test_loss = 0
@@ -967,7 +955,8 @@ def test(whichdecode):
     datac=datac.view(bs, 3, imgsize, retina_size)
     save_image(datac[0:8], f'{args.dir}/orig.png')
  
-    ''' current imagining of shape and color results in random noise
+    # current imagining of shape and color results in random noise
+    # generate a 
     print('Imagining a shape')
     with torch.no_grad():  # shots off the gradient for everything here
         zc = torch.randn(64, z_dim).cuda() * 0
@@ -986,16 +975,22 @@ def test(whichdecode):
         sample = vae.decoder_noskip(zs, zc, zl, 0).cuda()
         sample=sample.view(64, 3, imgsize, retina_size)
         save_image(sample[0:8], f'{args.dir}/samplecolor.png')
-    '''
 
     test_loss /= len(test_loader_noSkip.dataset)
     print('====> Test set loss: {:.4f}'.format(test_loss))
 
 
 def activations(image):
-    l1_act = F.relu(vae.fc1(image))
-    l2_act = F.relu(vae.fc2(l1_act))
-    mu_shape, log_var_shape, mu_color, log_var_color, hskip = vae.encoder(image)
+    h = vae.relu(vae.bn1(vae.conv1(image)))
+    h = vae.relu(vae.bn2(vae.conv2(h)))
+    h = vae.relu(vae.bn3(vae.conv3(h)))
+    h = vae.relu(vae.bn4(vae.conv4(h)))
+    h = h.view(-1, int(imgsize / 4) * int(imgsize / 4) * 16)
+    l1_act = vae.relu(vae.fc_bn2(vae.fc2(h)))
+    l1_actf = F.relu(vae.bn1(vae.conv1(image)))
+    l2_act = F.relu(vae.bn2(vae.conv2(l1_actf)))
+    l = torch.zeros(image.size()[0], vae.l_dim).cuda()
+    mu_shape, log_var_shape, mu_color, log_var_color, mu_location, log_var_location, hskip = vae.encoder(image, l)
     shape_act = vae.sampling(mu_shape, log_var_shape)
     color_act = vae.sampling(mu_color, log_var_color)
     return l1_act, l2_act, shape_act, color_act
@@ -1018,7 +1013,6 @@ def activation_fromBP(L1_activationBP, L2_activationBP, layernum):
         shape_act_bp = vae.sampling(mu_shape, log_var_shape)
         color_act_bp = vae.sampling(mu_color, log_var_color)
     return shape_act_bp, color_act_bp
-
 
 def BP(bp_outdim, l1_act, l2_act, shape_act, color_act, shape_coeff, color_coeff,l1_coeff,l2_coeff, normalize_fact):
     with torch.no_grad():
@@ -1343,7 +1337,7 @@ clf_cs = svm.SVC(C=10, gamma='scale', kernel='rbf')#classify color map against s
 
 
 #training the shape map on shape labels and color labels 
-def classifier_shape_train(whichdecode_use):
+def classifier_shape_train(whichdecode_use, train_dataset, train_loader_class):
     global colorlabels, numcolors
     colorlabels = np.random.randint(0, 10, 1000000)
     train_colorlabels = 0
@@ -1362,7 +1356,7 @@ def classifier_shape_train(whichdecode_use):
             clf_ss.fit(z_shape.cpu().numpy(), train_shapelabels)
 
 #testing the shape classifier (one image at a time)
-def classifier_shape_test(whichdecode_use, clf_ss, clf_sc,verbose =0):
+def classifier_shape_test(whichdecode_use, clf_ss, clf_sc, test_dataset, test_loader_class,verbose =0):
     global colorlabels, numcolors
     colorlabels = np.random.randint(0, 10, 1000000)
     numcolors = 0
@@ -1390,7 +1384,7 @@ def classifier_shape_test(whichdecode_use, clf_ss, clf_sc,verbose =0):
     return pred_ss, pred_sc, SSreport, SCreport
 
 #training the color map on shape and color labels
-def classifier_color_train(whichdecode_use):
+def classifier_color_train(whichdecode_use, train_dataset, train_loader_class,):
     vae.eval()
     global colorlabels, numcolors
     colorlabels = np.random.randint(0, 10, 1000000)
@@ -1409,7 +1403,7 @@ def classifier_color_train(whichdecode_use):
             clf_cs.fit(z_color.cpu().numpy(), train_shapelabels)
 
 #testing the color classifier (one image at a time)
-def classifier_color_test(whichdecode_use, clf_cc, clf_cs,verbose=0):
+def classifier_color_test(whichdecode_use, clf_cc, clf_cs, test_dataset, test_loader_class, verbose=0):
     global colorlabels, numcolors
     colorlabels = np.random.randint(0, 10, 1000000)
     numcolors = 0
@@ -1444,7 +1438,7 @@ def classifier_color_test(whichdecode_use, clf_cc, clf_cs,verbose=0):
 
 #testing on shape for multiple images stored in memory
 
-def classifier_shapemap_test_imgs(shape, shapelabels, colorlabels,numImg, clf_shapeS, clf_shapeC,verbose = 0):
+def classifier_shapemap_test_imgs(shape, shapelabels, colorlabels,numImg, clf_shapeS, clf_shapeC, test_dataset, verbose = 0):
 
     global numcolors
  
@@ -1473,7 +1467,7 @@ def classifier_shapemap_test_imgs(shape, shapelabels, colorlabels,numImg, clf_sh
 
 
 #testing on color for multiple images stored in memory
-def classifier_colormap_test_imgs(color, shapelabels, colorlabels,numImg, clf_colorC, clf_colorS,verbose = 0):
+def classifier_colormap_test_imgs(color, shapelabels, colorlabels,numImg, clf_colorC, clf_colorS, test_dataset, verbose = 0):
 
     
     numImg = int(numImg)
