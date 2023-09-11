@@ -32,7 +32,7 @@ import imageio
 import os
 from torch.utils.data import DataLoader, Subset
 from config import numcolors, args
-from dataloader import notMNIST
+#from dataloader import notMNIST
 
 from PIL import Image, ImageOps, ImageEnhance, __version__ as PILLOW_VERSION
 from joblib import dump, load
@@ -160,9 +160,8 @@ vae_type_flag = 'CNN' # must be CNN or FC
 # must call the dataset_builder function from a seperate .py file
 
 # padded cifar10, 2d retina, sight word latent, 
-def dataset_builder(data_set_flag):
+def dataset_builder(data_set_flag, bs, return_class = False):
     if data_set_flag == 'padded_mnist':
-        bs = 100
         class translate_to_right:
             def __init__(self, max_width):
                 self.max_width = max_width
@@ -251,7 +250,6 @@ def dataset_builder(data_set_flag):
         test_loader_skip = skip_loader_total
 
     elif data_set_flag == 'padded_cifar10':
-        bs = 100
         class translate_to_right:
             def __init__(self, max_width):
                 self.max_width = max_width
@@ -332,7 +330,6 @@ def dataset_builder(data_set_flag):
         #test_loader_skip = test_loader_total
 
     elif data_set_flag == 'mnist':
-        bs = 100 #batch size
         nw = 1 #number of workers
 
         # MNIST and Fashion MNIST Datasets
@@ -386,7 +383,6 @@ def dataset_builder(data_set_flag):
         test_loader_class= torch.utils.data.DataLoader(dataset=test_dataset, batch_size=bs_te, shuffle=False)
 
     elif data_set_flag == 'cifar10':
-        bs = 100
         nw = 8
         bs_tr=60000
         bs_te=10000
@@ -436,7 +432,10 @@ def dataset_builder(data_set_flag):
         #print('Loading the remapped versions of Cifar10')
         #colorremapstrain =torch.from_numpy(np.asarray(torch.load('3clusterstrain.pth'))).permute(0,2,1).type(torch.cuda.FloatTensor)/255
         #colorremapstest =torch.from_numpy(np.asarray(torch.load('3clusterstest.pth'))).permute(0,2,1).type(torch.cuda.FloatTensor)/255
-    return train_loader_noSkip, train_loader_skip, test_loader_noSkip, test_loader_skip
+    if return_class == True:
+        return train_loader_noSkip, train_loader_skip, test_loader_noSkip, test_loader_skip, train_loader_class, test_loader_class
+    else:
+        return train_loader_noSkip, train_loader_skip, test_loader_noSkip, test_loader_skip
 
 # modified CNN VAE
 class VAE_CNN(nn.Module):
@@ -650,11 +649,12 @@ class VAE_CNN(nn.Module):
         if type(x) == list or type(x) == tuple:
             l = x[2].cuda()
             x = x[1].cuda()
+            mu_shape, log_var_shape, mu_color, log_var_color, mu_location, log_var_location, hskip = self.encoder(x, l)
         else:
             x = x.cuda()
             l = torch.zeros(x.size()[0], self.l_dim).cuda()
+            mu_shape, log_var_shape, mu_color, log_var_color, mu_location, log_var_location, hskip = self.encoder(x, l)
 
-        mu_shape, log_var_shape, mu_color, log_var_color, mu_location, log_var_location, hskip = self.encoder(x, l)
         if ('shape' in keepgrad):
             z_shape = self.sampling(mu_shape, log_var_shape)
         else:
@@ -734,11 +734,10 @@ size1 = imgsize # temporary fix to make adjustments to the loss functions faster
 def loss_function_shape(recon_x, x, mu, log_var):
     x = x[1].clone().cuda()
     # make grayscale reconstruction
-    grayrecon = recon_x.view(-1, 3, imgsize, size1).mean(1)
-   
-    grayrecon = torch.stack([grayrecon, grayrecon, grayrecon], dim=1)
+    gray_x = x.view(-1, 3, imgsize, size1).mean(1)
+    gray_x = torch.stack([gray_x, gray_x, gray_x], dim=1)
     # here's a loss BCE based only on the grayscale reconstruction.  Use this in the return statement to kill color learning
-    BCEGray = F.binary_cross_entropy(grayrecon.view(-1, size1 * imgsize * 3), x.view(-1,size1 * imgsize * 3), reduction='sum')
+    BCEGray = F.binary_cross_entropy(recon_x.view(-1, size1 * imgsize * 3), gray_x.view(-1,size1 * imgsize * 3), reduction='sum')
     KLD = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
     return BCEGray + KLD
 
@@ -943,7 +942,7 @@ def test(whichdecode, test_loader_noSkip, test_loader_skip, bs):
 
             data = testiter_noSkip.next()
             data = data[0]
-            recon, mu_color, log_var_color, mu_shape, log_var_shape, mu_location, log_var_location = vae(data, 'noskip')
+            recon, mu_color, log_var_color, mu_shape, log_var_shape, mu_location, log_var_location = vae(data, 'retinal')
 
             # sum up batch loss
             #test_loss += loss_function_shape(recon, data, mu_shape, log_var_shape).item()
@@ -951,18 +950,23 @@ def test(whichdecode, test_loader_noSkip, test_loader_skip, bs):
             test_loss += loss_function(recon, data, mu_shape, log_var_shape, mu_color, log_var_color).item()
 
     print('Example reconstruction')
-    datac = data[0].cpu()
+    datac = data[0].cuda()
     datac=datac.view(bs, 3, imgsize, retina_size)
     save_image(datac[0:8], f'{args.dir}/orig.png')
- 
+    pos = torch.zeros((64,100)).cuda()
+    for i in range(len(pos)):
+        pos[i][random.randint(0,99)] = 1
+    pos_mu = vae.fc35(pos)
+    pos_logvar = vae.fc36(pos)
+
     # current imagining of shape and color results in random noise
     # generate a 
     print('Imagining a shape')
     with torch.no_grad():  # shots off the gradient for everything here
         zc = torch.randn(64, z_dim).cuda() * 0
         zs = torch.randn(64, z_dim).cuda() * 1
-        zl = torch.randn(64, z_dim).cuda() * 1
-        sample = vae.decoder_noskip(zs, zc, zl, 0).cuda()
+        zl = vae.sampling(pos_mu, pos_logvar)
+        sample = vae.decoder_retinal(zs, zc, zl, 0).cuda()
         sample=sample.view(64, 3, imgsize, retina_size)
         save_image(sample[0:8], f'{args.dir}/sampleshape.png')
 
@@ -971,8 +975,8 @@ def test(whichdecode, test_loader_noSkip, test_loader_skip, bs):
     with torch.no_grad():  # shots off the gradient for everything here
         zc = torch.randn(64, z_dim).cuda() * 1
         zs = torch.randn(64, z_dim).cuda() * 0
-        zl = torch.randn(64, z_dim).cuda() * 1
-        sample = vae.decoder_noskip(zs, zc, zl, 0).cuda()
+        zl = vae.sampling(pos_mu, pos_logvar)
+        sample = vae.decoder_retinal(zs, zc, zl, 0).cuda()
         sample=sample.view(64, 3, imgsize, retina_size)
         save_image(sample[0:8], f'{args.dir}/samplecolor.png')
 
