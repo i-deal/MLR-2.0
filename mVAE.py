@@ -134,6 +134,22 @@ def Colorize_func(img):
 
     return img
 
+def Colorize_func_specific(col,img):
+    # col: an int index for which base color is being used
+    rgb = colorvals[col]  # grab the rgb for this base color
+
+    r_color = rgb[0] + np.random.uniform() * colorrange * 2 - colorrange  # generate a color randomly in the neighborhood of the base color
+    g_color = rgb[1] + np.random.uniform() * colorrange * 2 - colorrange
+    b_color = rgb[2] + np.random.uniform() * colorrange * 2 - colorrange
+
+    np_img = np.array(img, dtype=np.uint8)
+    np_img = np.dstack([np_img * r_color, np_img * g_color, np_img * b_color])
+    backup = np_img
+    np_img = np_img.astype(np.uint8)
+    img = Image.fromarray(np_img, 'RGB')
+
+    return img
+
 #to choose a specific class in case is necessary
 def data_filter (data_type, selected_labels):
   data_trans= copy.deepcopy(data_type)
@@ -151,7 +167,7 @@ def thecolorlabels(datatype):
     labelscolor = colorlabels[coloridx]
     return torch.tensor(labelscolor)
 
-data_set_flag = 'padded_mnist' # mnist, cifar10, padded_mnist, padded_cifar10
+data_set_flag = 'padded_mnist_rg' # mnist, cifar10, padded_mnist, padded_cifar10
 
 imgsize = 28
 retina_size = 100 #by default should be same size as image
@@ -248,6 +264,128 @@ def dataset_builder(data_set_flag, bs, return_class = False):
         train_loader_skip = skip_loader_total #t
         test_loader_noSkip = test_loader_total
         test_loader_skip = skip_loader_total
+
+    elif data_set_flag == 'padded_mnist_red_green':
+        class translate_to_right:
+            def __init__(self, max_width):
+                self.max_width = max_width
+                self.pos = torch.zeros((100))
+            def __call__(self, img):
+                padding_left = random.randint(self.max_width // 2, self.max_width - img.size[0])
+                padding_right = self.max_width - img.size[0] - padding_left
+                padding = (padding_left, 0, padding_right, 0)
+                pos = self.pos.clone()
+                pos[padding_left] = 1
+                return ImageOps.expand(img, padding), pos
+
+        class translate_to_left:
+            def __init__(self, max_width):
+                self.max_width = max_width
+                self.pos = torch.zeros((100))
+            def __call__(self, img):
+                padding_left = random.randint(0, (self.max_width // 2) - img.size[0])
+                padding_right = self.max_width - img.size[0] - padding_left
+                padding = (padding_left, 0, padding_right, 0)
+                pos = self.pos.clone()
+                pos[padding_left] = 1
+                return ImageOps.expand(img, padding), pos
+
+        class PadAndPosition:
+            def __init__(self, transform):
+                self.transform = transform
+            def __call__(self, img):
+                new_img, position = self.transform(img)
+                return transforms.ToTensor()(new_img), transforms.ToTensor()(img), position
+        
+        class Colorize_specific:
+            def __init__(self, col):
+                self.col = col
+            def __call__(self, img):
+                # col: an int index for which base color is being used
+                rgb = colorvals[self.col]  # grab the rgb for this base color
+
+                r_color = rgb[0] + np.random.uniform() * colorrange * 2 - colorrange  # generate a color randomly in the neighborhood of the base color
+                g_color = rgb[1] + np.random.uniform() * colorrange * 2 - colorrange
+                b_color = rgb[2] + np.random.uniform() * colorrange * 2 - colorrange
+
+                np_img = np.array(img, dtype=np.uint8)
+                np_img = np.dstack([np_img * r_color, np_img * g_color, np_img * b_color])
+                backup = np_img
+                np_img = np_img.astype(np.uint8)
+                img = Image.fromarray(np_img, 'RGB')
+
+                return img
+
+        
+        # Load MNIST datasets, order: [notional_retina, cropped_digit, one-hot_position_vector]   
+        train_dataset_right = datasets.MNIST(
+            root='./data',
+            train=True,
+            download=True,
+            transform=transforms.Compose([
+                Colorize_specific(col=0), # red
+                PadAndPosition(translate_to_right(retina_size)),
+            ])
+        )
+
+        train_dataset_left = datasets.MNIST(
+            root='./data',
+            train=True,
+            download=True,
+            transform=transforms.Compose([
+                Colorize_specific(col=1), # green
+                PadAndPosition(translate_to_left(retina_size)),
+            ])
+        )
+
+        train_dataset_white = datasets.MNIST(
+            root='./data',
+            train=True,
+            download=True,
+            transform=transforms.Compose([
+                Colorize_specific(col=9), # white
+                PadAndPosition(translate_to_left(retina_size)),
+            ])
+        )
+
+        # skip connection trained on white digits only
+        train_skip_mnist= datasets.MNIST(root='./mnist_data/', train=True,
+                               transform=transforms.Compose([Colorize_specific(col=9),transforms.RandomRotation(90), transforms.RandomCrop(size=28, padding= 8), transforms.ToTensor()]), download=True)
+        #train_skip_fmnist= datasets.FashionMNIST(root='./fashionmnist_data/', train=True,
+         #                              transform=transforms.Compose([Colorize_func, transforms.RandomRotation(90), transforms.RandomCrop(size=28, padding= 8),transforms.ToTensor()]),
+          #                             download=True)
+
+        right_indices_0_to_4 = [idx for idx, target in enumerate(train_dataset_right.targets) if target in [0, 1, 2, 3, 4]]
+        right_indices_5_to_9 = [idx for idx, target in enumerate(train_dataset_right.targets) if target not in [0, 1, 2, 3, 4]]
+
+        left_indices_5_to_9 = [idx for idx, target in enumerate(train_dataset_left.targets) if target in [5, 6, 7, 8, 9]]
+        left_indices_0_to_4 = [idx for idx, target in enumerate(train_dataset_left.targets) if target not in [5, 6, 7, 8, 9]]
+
+        right_subset_0_to_4 = Subset(train_dataset_right, right_indices_0_to_4) #a subset consisting of only digits < 5 and all translated to the right
+        left_subset_5_to_9 = Subset(train_dataset_left, left_indices_5_to_9) #a subset consisting of only digits >= 5 and all translated to the left
+
+        right_subset_5_to_9 = Subset(train_dataset_right, right_indices_5_to_9) #a subset consisting of only digits >= 5 and all translated to the right
+        left_subset_0_to_4 = Subset(train_dataset_left, left_indices_0_to_4) #a subset consisting of only digits < 5 and all translated to the left
+
+        #combine these subsets to build a set of all digits where digits < 5 are translated to the right and digits >= 5 to the left
+        total_train_dataset = right_subset_0_to_4 + left_subset_5_to_9
+
+        #combine these subsets to build a set of all digits where digits < 5 are translated to the left and digits >= 5 to the right
+        total_test_dataset = right_subset_5_to_9 + left_subset_0_to_4
+
+        train_loader_total = torch.utils.data.DataLoader(total_train_dataset, shuffle = True, batch_size=bs, drop_last=True)
+
+        test_loader_total = torch.utils.data.DataLoader(total_test_dataset, shuffle = True, batch_size=bs, drop_last=True)
+
+        skip_loader_total = torch.utils.data.DataLoader(train_skip_mnist, shuffle = True, batch_size=bs, drop_last=True)
+        
+        white_loader_total = torch.utils.data.DataLoader(train_dataset_white, shuffle = True, batch_size=bs, drop_last=True)
+
+        train_loader_noSkip = train_loader_total
+        train_loader_skip = skip_loader_total #t
+        test_loader_noSkip = test_loader_total
+        test_loader_skip = skip_loader_total
+        single_col_loader_noSkip = white_loader_total
 
     elif data_set_flag == 'padded_cifar10':
         class translate_to_right:
@@ -434,6 +572,8 @@ def dataset_builder(data_set_flag, bs, return_class = False):
         #colorremapstest =torch.from_numpy(np.asarray(torch.load('3clusterstest.pth'))).permute(0,2,1).type(torch.cuda.FloatTensor)/255
     if return_class == True:
         return train_loader_noSkip, train_loader_skip, test_loader_noSkip, test_loader_skip, train_loader_class, test_loader_class
+    elif data_set_flag == 'padded_mnist_red_green':
+        return train_loader_noSkip, train_loader_skip, test_loader_noSkip, test_loader_skip, single_col_loader_noSkip
     else:
         return train_loader_noSkip, train_loader_skip, test_loader_noSkip, test_loader_skip
 
@@ -746,14 +886,14 @@ def loss_function_color(recon_x, x, mu, log_var):
     # make color-only (no shape) reconstruction and use that as the loss function
     recon = recon_x.clone().view(-1, 3, size1 * imgsize)
     # compute the maximum color for the r,g and b channels for each digit separately
-    maxr, maxi = torch.max(recon[:, 0, :], -1, keepdim=True)
+    '''    maxr, maxi = torch.max(recon[:, 0, :], -1, keepdim=True)
     maxg, maxi = torch.max(recon[:, 1, :], -1, keepdim=True)
     maxb, maxi = torch.max(recon[:, 2, :], -1, keepdim=True)
     # now build a new reconsutrction that has only the max color, and no shape information at all
     recon[:, 0, :] = maxr
     recon[:, 1, :] = maxg
     recon[:, 2, :] = maxb
-    recon = recon.view(-1, size1 * imgsize * 3)
+    recon = recon.view(-1, size1 * imgsize * 3)'''
     maxr, maxi = torch.max(x[:, 0, :], -1, keepdim=True)
     maxg, maxi = torch.max(x[:, 1, :], -1, keepdim=True)
     maxb, maxi = torch.max(x[:, 2, :], -1, keepdim=True)
@@ -772,6 +912,7 @@ def loss_function_location(recon_x, x, mu, log_var):
     KLD = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
     return BCE + KLD
 
+# test recreate img with different features
 def progress_out(data, epoch, count, skip = False):
     sample_size = 25
     vae.eval()
@@ -880,7 +1021,7 @@ def train(epoch, whichdecode, train_loader_noSkip, train_loader_skip):
                keepgrad = []
 
            elif count% m == 4:
-               data = data[1] + data_skip[0]      
+               data = data_skip[0] + dataiter_skip.next()[0]  
                whichdecode_use = 'skip_cropped'
                keepgrad = ['skip']
 
@@ -924,7 +1065,7 @@ def train(epoch, whichdecode, train_loader_noSkip, train_loader_skip):
         if count % 600 == 0:
             progress_out(data_noSkip, epoch, count)
         elif count % 500 == 0:
-            data = data_noSkip[0][1] + data_skip[0] 
+            data = dataiter_skip.next()[0] + data_skip[0] 
             progress_out(data, epoch, count, skip= True)
 
     print('====> Epoch: {} Average loss: {:.4f}'.format(epoch, train_loss / len(train_loader_noSkip.dataset)))
