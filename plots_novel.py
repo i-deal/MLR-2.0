@@ -1,5 +1,3 @@
-
-
 #MNIST VAE retreived from https://github.com/lyeoni/pytorch-mnist-VAE/blob/master/pytorch-mnist-VAE.ipynb
 
 # Modifications:
@@ -19,7 +17,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-
+from PIL import Image, ImageDraw, ImageFont
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from torchvision import datasets, transforms
@@ -66,7 +64,7 @@ def load_checkpoint(filepath):
     vae.eval()
     return vae
 
-load_checkpoint('output{modelNumber}/checkpoint_threeloss_singlegrad200_smfc.pth'.format(modelNumber=modelNumber))
+load_checkpoint('output/checkpoint_threeloss_singlegrad100_smfc.pth'.format(modelNumber=modelNumber))
 
 #print('Loading the classifiers')
 clf_shapeS=load('output{num}/ss{num}.joblib'.format(num=modelNumber))
@@ -108,10 +106,11 @@ smallpermnum = 100
 
 Fig1SuppFlag =0      #reconstructions straight from the VAE (supplementary figure 1)
 Fig2aFlag = 0       #binding pool reconstructions
-fig_new_loc = 0
+fig_new_loc = 0     # reconstruct retina images with digits in the location opposite of training
+fig_loc_compare = 0 # compare retina images with digits in the same location as training and opposite location
 Fig2bFlag = 1        #novel reconstructions
 Fig2cFlag = 0        #token reconstructions (reconstructing multiple items)
-Fig2dFlag = 1
+Fig2dFlag = 0
 
 bindingtestFlag = 0  #simulating binding shape-color of two items
 
@@ -246,7 +245,7 @@ if Fig2aFlag==1:
 ############################# Figure 2b#################################################################################
 
 if fig_new_loc == 1:
-    bs = 100
+    bs = 27
     retina_size = 100
     class translate_to_right:
         def __init__(self, max_width):
@@ -379,6 +378,100 @@ if fig_new_loc == 1:
                 normalize=False,
                 range=(-1, 1),
             )
+
+if fig_loc_compare ==1:
+    train_loader_noSkip, train_loader_skip, test_loader_noSkip, test_loader_skip = dataset_builder('padded_mnist', 15)
+    
+    imgsize = 28
+    numimg = 10
+    trans2 = transforms.ToTensor()
+    dataiter_noSkip_test = iter(test_loader_noSkip)
+    dataiter_noSkip_train = iter(train_loader_noSkip)
+    data_test = dataiter_noSkip_test.next()
+    data_train = dataiter_noSkip_train.next()
+
+    data = data_test[0].copy()
+    data[0] = torch.cat((data_test[0][0], data_train[0][0]),dim=0) #.cuda()
+    data[1] = torch.cat((data_test[0][1], data_train[0][1]),dim=0)
+    data[2] = torch.cat((data_test[0][2], data_train[0][2]),dim=0)
+
+    sample = data
+    sample_size = 15
+    with torch.no_grad():
+        reconl, mu_color, log_var_color, mu_shape, log_var_shape,mu_location, log_var_location = vae(sample, 'location') #location
+        reconb, mu_color, log_var_color, mu_shape, log_var_shape, mu_location, log_var_location = vae(sample, 'retinal') #retina
+        recond, mu_color, log_var_color, mu_shape, log_var_shape, mu_location, log_var_location = vae(sample, 'cropped') #digit
+        reconc, mu_color, log_var_color, mu_shape, log_var_shape, mu_location, log_var_location = vae(sample, 'color') #color
+        recons, mu_color, log_var_color, mu_shape, log_var_shape, mu_location, log_var_location = vae(sample, 'shape') #shape
+            
+    empty_retina = torch.zeros((2*sample_size, 3, 28, 100))
+
+    n_reconl = empty_retina.clone()
+    for i in range(len(reconl)):
+        n_reconl[i][0, :, 0:100] = reconl[i]
+        n_reconl[i][1, :, 0:100] = reconl[i]
+        n_reconl[i][2, :, 0:100] = reconl[i]
+
+    n_recond = empty_retina.clone()
+    for i in range(len(recond)):
+        n_recond[i][0, :, 0:imgsize] = recond[i][0]
+        n_recond[i][1, :, 0:imgsize] = recond[i][1]
+        n_recond[i][2, :, 0:imgsize] = recond[i][2]
+
+    n_reconc = empty_retina.clone()
+    n_reconc[i][0, :, 0:28] = reconc[i][0]
+    n_reconc[i][1, :, 0:28] = reconc[i][1]
+    n_reconc[i][2, :, 0:28] = reconc[i][2]
+
+    n_recons = empty_retina.clone()
+    for i in range(len(recons)):
+        n_recons[i][0, :, 0:28] = recons[i][0]
+        n_recons[i][1, :, 0:28] = recons[i][1]
+        n_recons[i][2, :, 0:28] = recons[i][2]
+    line1 = torch.ones((1,2)) * 0.5
+    line1 = line1.view(1,1,1,2)
+    line2 = line1.expand(sample_size, 3, imgsize, 2)
+    line1 = line1.expand(2*sample_size, 3, imgsize, 2)
+    
+    n_reconc = torch.cat((n_reconc,line1),dim = 3).cuda()
+    n_recons = torch.cat((n_recons,line1),dim = 3).cuda()
+    n_reconl = torch.cat((n_reconl,line1),dim = 3).cuda()
+    n_recond = torch.cat((n_recond,line1),dim = 3).cuda()
+    shape_color_dim = retina_size + 2
+    sample_test = torch.cat((sample[0][:sample_size],line2),dim = 3).cuda()
+    sample_train = torch.cat((sample[0][sample_size:(2*sample_size)],line2),dim = 3).cuda()
+    reconb = torch.cat((reconb,line1.cuda()),dim = 3).cuda()
+    utils.save_image(
+        torch.cat((
+        torch.cat([sample_train.view(sample_size, 3, imgsize, retina_size+2), reconb[sample_size:(2*sample_size)].view(sample_size, 3, imgsize, retina_size+2), n_recond[sample_size:(2*sample_size)].view(sample_size, 3, imgsize, retina_size+2),
+                    n_reconl[sample_size:(2*sample_size)].view(sample_size, 3, imgsize, retina_size+2), n_reconc[sample_size:(2*sample_size)].view(sample_size, 3, imgsize, shape_color_dim), n_recons[sample_size:(2*sample_size)].view(sample_size, 3, imgsize, shape_color_dim)], 0),
+        torch.cat([sample_test.view(sample_size, 3, imgsize, retina_size+2), reconb[:(sample_size)].view(sample_size, 3, imgsize, retina_size+2), n_recond[:(sample_size)].view(sample_size, 3, imgsize, retina_size+2),
+                    n_reconl[:(sample_size)].view(sample_size, 3, imgsize, retina_size+2), n_reconc[:(sample_size)].view(sample_size, 3, imgsize, shape_color_dim), n_recons[:(sample_size)].view(sample_size, 3, imgsize, shape_color_dim)], 0)),0),
+                'output{num}/figure_new_location.png'.format(num=modelNumber),
+                nrow=sample_size,
+                normalize=False,
+                range=(-1, 1),
+            )
+    image_pil = Image.open('output{num}/figure_new_location.png'.format(num=modelNumber))
+    trained_label = "Trained Data"
+    untrained_label = "Untrained Data"
+    # Add trained and untrained labels to the image using PIL's Draw module
+    draw = ImageDraw.Draw(image_pil)
+    font = ImageFont.load_default()  # You can choose a different font or size
+
+    # Trained data label at top left
+    trained_label_position = (10, 10)  # Adjust the position of the text
+    draw.text(trained_label_position, trained_label, fill=(255, 255, 255), font=font)
+
+    # Untrained data label at bottom left
+    image_width, image_height = image_pil.size
+    untrained_label_position = (10, image_height//2)  # Adjust the position of the text
+    draw.text(untrained_label_position, untrained_label, fill=(255, 255, 255), font=font)
+
+    # Save the modified image with labels
+    image_pil.save('output{num}/figure_new_location.png'.format(num=modelNumber))
+
+    print("Images with labels saved successfully.")
 
 if Fig2bFlag==1:
     all_imgs = []
